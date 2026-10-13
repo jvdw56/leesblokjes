@@ -33,7 +33,7 @@
   --blokje-border: #d4e2ee;
   --blokje-active-bg: #fffceb; /* Zachte gele 'leeslamp' highlight */
   --blokje-active-border: #f59e0b;
-  --blokje-dimmed-opacity: 0.55;
+  --blokje-dimmed-opacity: 0.7;
 
   /* Accentkleuren */
   --primary: #2563eb;
@@ -73,7 +73,7 @@ body[data-theme="creme"] {
   --blokje-border: #d4e2ee;
   --blokje-active-bg: #fffceb;
   --blokje-active-border: #f59e0b;
-  --blokje-dimmed-opacity: 0.55;
+  --blokje-dimmed-opacity: 0.7;
   --primary: #2563eb;
   --primary-hover: #1d4ed8;
   --primary-light: #eff6ff;
@@ -90,7 +90,7 @@ body[data-theme="blauw"] {
   --blokje-border: #c6d2d7;
   --blokje-active-bg: #dbeafe;
   --blokje-active-border: #2563eb;
-  --blokje-dimmed-opacity: 0.55;
+  --blokje-dimmed-opacity: 0.7;
   --primary: #0284c7;
   --primary-hover: #0369a1;
   --primary-light: #e0f2fe;
@@ -107,7 +107,7 @@ body[data-theme="groen"] {
   --blokje-border: #cdd7c2;
   --blokje-active-bg: #dcfce7;
   --blokje-active-border: #16a34a;
-  --blokje-dimmed-opacity: 0.55;
+  --blokje-dimmed-opacity: 0.7;
   --primary: #059669;
   --primary-hover: #047857;
   --primary-light: #d1fae5;
@@ -126,7 +126,7 @@ body.dark-mode {
   --blokje-border: #38465c;
   --blokje-active-bg: #2d384d;
   --blokje-active-border: #fbbf24;
-  --blokje-dimmed-opacity: 0.45;
+  --blokje-dimmed-opacity: 0.7;
 
   --primary: #3b82f6;
   --primary-hover: #60a5fa;
@@ -431,8 +431,7 @@ body {
   grid-column: 1 / -1;
 }
 
-.reading-profile-description,
-.profile-choice-description {
+.reading-profile-description {
   color: var(--color-text-muted);
   font-size: 0.78rem;
   line-height: 1.4;
@@ -445,33 +444,58 @@ body {
 .reading-profile-picker {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 6px;
+  grid-auto-rows: 1fr;
+  gap: 8px;
 }
 
 .reading-profile-choice {
+  position: relative;
   display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: 9px 7px;
+  align-items: center;
+  justify-content: center;
+  min-height: 78px;
+  padding: 16px 8px 22px;
   min-width: 0;
-  text-align: left;
+  text-align: center;
   font: inherit;
   background-color: var(--color-card-bg);
   color: var(--color-text-main);
   border: 2px solid var(--blokje-border);
   border-radius: var(--radius-md);
   cursor: pointer;
+  transition: border-color var(--transition-fast), background-color var(--transition-fast);
 }
 
-.reading-profile-choice:hover,
-.reading-profile-choice[aria-pressed="true"] {
+.reading-profile-choice:hover {
   border-color: var(--primary);
   background-color: var(--primary-light);
 }
 
+.reading-profile-choice[aria-checked="true"] {
+  border-color: #2563eb;
+  background-color: var(--primary-light);
+  box-shadow: inset 0 0 0 1px #2563eb;
+}
+
+.profile-choice-indicator {
+  position: absolute;
+  bottom: 4px;
+  color: var(--primary);
+  font-size: 0.85rem;
+  line-height: 1;
+  visibility: hidden;
+}
+
+.reading-profile-choice[aria-checked="true"] .profile-choice-indicator {
+  visibility: visible;
+}
+
 .profile-choice-title {
-  font-size: 0.8rem;
+  font-size: 0.82rem;
+  line-height: 1.35;
   font-weight: 700;
+  max-width: 100%;
+  overflow-wrap: break-word;
 }
 
 .reading-layout-section .reading-mode-picker {
@@ -674,7 +698,8 @@ body {
 /* Achtergrondkleur Picker */
 .theme-picker {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-auto-rows: 1fr;
   gap: 6px;
   margin-top: 4px;
   min-width: 0;
@@ -692,6 +717,7 @@ body {
   cursor: pointer;
   user-select: none;
   min-width: 0;
+  min-height: 42px;
   transition: border-color var(--transition-fast), background-color var(--transition-fast), transform var(--transition-fast), box-shadow var(--transition-fast);
 }
 
@@ -708,9 +734,9 @@ body {
 }
 
 .theme-option:has(input:checked) {
-  border-color: var(--primary);
+  border-color: #2563eb;
   background-color: var(--primary-light);
-  box-shadow: 0 0 0 2px var(--primary);
+  box-shadow: inset 0 0 0 1px #2563eb;
 }
 
 .theme-option:has(input:focus-visible) {
@@ -758,7 +784,6 @@ body.dark-mode .theme-option:has(input:checked) {
   gap: 1px;
   line-height: 1.25;
   min-width: 0;
-  overflow: hidden;
 }
 
 .theme-name {
@@ -767,7 +792,7 @@ body.dark-mode .theme-option:has(input:checked) {
   color: var(--color-text-main);
   letter-spacing: normal;
   word-spacing: normal;
-  white-space: nowrap;
+  overflow-wrap: break-word;
 }
 
 /* --------------------------------------------------------------------------
@@ -1827,9 +1852,9 @@ body.dark-mode .blokje-badge {
 }
 
 .btn-speak-block.speaking {
-  background-color: var(--accent-green);
+  background-color: #166534;
   color: #ffffff;
-  border-color: var(--accent-green);
+  border-color: #166534;
   animation: pulse-audio 1.2s infinite;
 }
 
@@ -2027,7 +2052,8 @@ body.dark-mode.show-syllables:not(.color-syllables) .syl {
 
 /* Klankmodus gebruikt dezelfde bouwsteenvorm, met vaste leeskaartkleuren. */
 .reading-mode-picker {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 4px;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
@@ -2037,7 +2063,8 @@ body.dark-mode.show-syllables:not(.color-syllables) .syl {
 }
 
 .reading-mode-button {
-  flex: 1;
+  min-width: 0;
+  min-height: 44px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2727,6 +2754,14 @@ body.dark-mode .source-website-badge {
   .sound {
     padding: 3px 5px;
     font-size: 0.95em;
+  }
+}
+
+@media (max-width: 300px) {
+  .reading-profile-picker,
+  .theme-picker,
+  .reading-layout-section .reading-mode-picker {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 

@@ -15,10 +15,13 @@ meer; hiervoor blijven tekst plakken en de bookmarklet beschikbaar.
 ## Leesprofiel
 
 Het instellingenpaneel blijft beschikbaar en is niet inklapbaar. De volgorde is
-Lettertype, Lettergrootte, Regelafstand, Woordafstand, Leesprofiel,
+Leesprofiel, Lettertype, Lettergrootte, Regelafstand, Woordafstand,
 Achtergrondkleur, Tekstweergave en de aanvullende persoonlijke instellingen.
 Leesprofiel toont permanent vier kaarten in een 2x2-raster; precies een kaart is
-actief. De keuze wordt bij verversen hersteld.
+actief. De keuze wordt bij verversen hersteld. De compacte kaarten tonen alleen
+de profielnaam; de beschrijving blijft beschikbaar voor schermlezers.
+Een blauwe rand en een vinkje markeren het actieve profiel. Pijltjestoetsen,
+Home en End verplaatsen selectie en focus; Tab verlaat de radiogroep.
 
 - **Klanknavigator** (standaard): kleuren helpen klanken herkennen. Gebruikt
   exact de bestaande klankgroepen, kleuren en markeringen van LeesBlokjes™.
@@ -36,8 +39,9 @@ actief. De keuze wordt bij verversen hersteld.
 
 Persoonlijke hulp bewaart daarnaast de bestaande opties **Lettergrepen tonen**
 en **Lettergrepen kleuren** onder Overige instellingen. Lettergrepen tonen
-vervangt de selectieve klankmarkeringen; de drie klankschakelaars zijn dan
-uitgeschakeld zonder hun voorkeuren te wissen. De oude losse modusknoppen en de
+vervangt de selectieve klankmarkeringen. De drie klankschakelaars blijven bruikbaar:
+een wijziging schakelt direct terug naar de selectieve klankweergave, zonder
+overige voorkeuren te wissen. De oude losse modusknoppen en de
 uitklapbare klanklegenda zijn verwijderd.
 
 Profielwisselingen maken bestaande uitvoer opnieuw op via `renderBlocks`, zonder
@@ -46,6 +50,8 @@ over de uitvoer te schrijven. Een profielkeuze kan ook aanwezige invoer verwerke
 als nog geen uitvoer bestaat. Woordfocus volgt bij voorlezen de woordgrenzen als
 de browser/stem deze doorgeeft; anders blijft het actieve leesdeel gemarkeerd.
 Profiel- en weergavewisselingen stoppen lopende audio en negeren oude callbacks.
+Een spraakfout geeft een Nederlandse melding en herstelt de voorleesbediening.
+Gedimde focustekst blijft leesbaar, ook in het donkere thema.
 
 ### Afstand en tekstweergave
 
@@ -141,6 +147,11 @@ gewone tekst door de drie klankmarkeringen uit te schakelen. Een oude gele
 achtergrond wordt Crème; `blauw` en `groen` behouden hun sleutels en krijgen de
 warme tinten. De migratie wordt in het bestaande leesprofiel opgeslagen en
 behoudt de andere voorkeuren. Zonder opgeslagen profiel start Klanknavigator.
+Ongeldige profiel-, thema- en weergavewaarden krijgen veilige standaardwaarden.
+Lettertypen worden tegen de bestaande lijst gecontroleerd, getallen op
+eindigheid en bereik en schakelaars op hun booleaanse type. Corrupte opslag
+wordt gemeld; geblokkeerde localStorage verhindert niet dat de app start of
+tekst verwerkt, maar voorkeuren kunnen dan niet worden bewaard.
 
 ### Tests
 
@@ -167,6 +178,12 @@ tekstbehoud, kleuren en het ontbreken van horizontale pagina-overflow.
 Aanvullende profieltests controleren het permanente 2x2-raster op alle drie
 schermformaten, profielherstel, migraties, ondersteuning aan/uit, woordfocus via
 muis/toetsenbord, de woordpositie bij voorlezen en het negeren van oude
-spraakcallbacks. Er is geen afzonderlijk buildscript: dit is een statische
+spraakcallbacks. De volledige invoerroute test typen/plakken, voorbeeldtekst,
+wissen, woordentelling, opnieuw verwerken en direct wisselen zonder extra
+verwerkklik. Aanvullend worden gelijke kaartmaten op 320px, de eenkolomsfallback
+onder 300px, toetsenbordselectie, corrupte/geblokkeerde opslag, import- en
+spraakfouten en tekstcontrast van minimaal 4.5:1 gecontroleerd. Documenttests
+controleren ook de bestandskeuze- en drop-events met echte DOCX/PDF-bestanden.
+Er is geen afzonderlijk build- of lintscript: dit is een statische
 HTML/CSS/JavaScript-app; de browsertests laden de echte applicatie en controleren
 de bestaande functionaliteit.

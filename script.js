@@ -142,7 +142,51 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
+  function normalizeProfile(value) {
+    const isObject = value !== null && typeof value === 'object' && !Array.isArray(value);
+    const profile = isObject ? value : {};
+    if (!isObject) console.warn('Ongeldig leesprofiel; standaardinstellingen worden gebruikt.');
+    const normalized = { ...DEFAULT_PROFILE };
+    for (const [key, min, max, step] of [
+      ['fontSize', 14, 32, 1], ['lineHeight', 1.2, 2.5, 0.1], ['wordSpacing', 0.8, 2.4, 0.1]
+    ]) {
+      const raw = profile[key];
+      const number = typeof raw === 'number' || (typeof raw === 'string' && raw.trim()) ? Number(raw) : NaN;
+      if (Number.isFinite(number)) {
+        normalized[key] = Number((Math.round(Math.min(max, Math.max(min, number)) / step) * step).toFixed(1));
+      } else if (Object.hasOwn(profile, key)) {
+        console.warn(`Ongeldige leesinstelling ${key}; standaardwaarde wordt gebruikt.`);
+      }
+    }
+    const choices = {
+      font: Object.keys(FONT_MAP),
+      theme: ['creme', 'blauw', 'groen', 'donker'],
+      readingProfile: ['navigator', 'focus', 'personal', 'sounds'],
+      readingLayout: ['blocks', 'continuous']
+    };
+    for (const [key, allowed] of Object.entries(choices)) {
+      if (allowed.includes(profile[key])) normalized[key] = profile[key];
+      else if (Object.hasOwn(profile, key)) console.warn(`Onbekende leesinstelling ${key}; standaardwaarde wordt gebruikt.`);
+    }
+    for (const key of ['showSyllables', 'colorSyllables']) {
+      if (typeof profile[key] === 'boolean') normalized[key] = profile[key];
+      else if (Object.hasOwn(profile, key)) console.warn(`Ongeldige leesinstelling ${key}; standaardwaarde wordt gebruikt.`);
+    }
+    normalized.help = { ...DEFAULT_PROFILE.help };
+    const help = profile.help;
+    if (help !== undefined && (help === null || typeof help !== 'object' || Array.isArray(help))) {
+      console.warn('Ongeldige persoonlijke ondersteuning; standaardwaarden worden gebruikt.');
+    } else if (help) {
+      for (const key of Object.keys(normalized.help)) {
+        if (typeof help[key] === 'boolean') normalized.help[key] = help[key];
+        else if (Object.hasOwn(help, key)) console.warn(`Ongeldige ondersteuning ${key}; standaardwaarde wordt gebruikt.`);
+      }
+    }
+    return normalized;
+  }
+
   function applyProfile(profile, updateInputs = true) {
+    profile = normalizeProfile(profile);
     // 1. Lettertype
     const fontName = FONT_MAP[profile.font] ? profile.font : 'Lexend';
     const fontFamily = FONT_MAP[fontName];
@@ -209,11 +253,10 @@ document.addEventListener('DOMContentLoaded', () => {
     document.body.classList.toggle('show-syllables', readingMode === 'syllables' && showSyllables);
     document.body.classList.toggle('color-syllables', readingMode === 'syllables' && colorSyllables);
     personalOptions.hidden = readingProfile !== 'personal';
-    for (const key of ['longSounds', 'doubleSounds', 'difficultSounds']) {
-      helpControls[key].disabled = readingProfile === 'personal' && showSyllables;
-    }
     readingProfileButtons.forEach(button => {
-      button.setAttribute('aria-pressed', String(button.dataset.readingProfile === readingProfile));
+      const selected = button.dataset.readingProfile === readingProfile;
+      button.setAttribute('aria-checked', String(selected));
+      button.tabIndex = selected ? 0 : -1;
     });
     if (currentBlocks.length) {
       renderBlocks(currentBlocks, false, currentText);
@@ -282,54 +325,77 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function loadProfile() {
-    try {
-      const savedRaw = localStorage.getItem(PROFILE_KEY);
-      if (savedRaw) {
-        const saved = JSON.parse(savedRaw);
-        const migrated = { ...DEFAULT_PROFILE, ...saved };
-        if (!saved.readingProfile) {
-          migrated.readingProfile = saved.readingMode === 'sounds' ? 'sounds' : 'personal';
-          migrated.showSyllables = saved.showSyllables ?? true;
-          if (migrated.readingProfile === 'personal' && !migrated.showSyllables) {
-            migrated.help = { ...DEFAULT_PROFILE.help, longSounds: false, doubleSounds: false, difficultSounds: false };
-          }
+    function readStoredProfile(key) {
+      let raw;
+      try {
+        raw = localStorage.getItem(key);
+      } catch (error) {
+        console.warn('Kon opgeslagen leesinstellingen niet lezen:', error);
+        return null;
+      }
+      if (raw === null) return null;
+      try {
+        const value = JSON.parse(raw);
+        if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+          throw new TypeError('Het opgeslagen leesprofiel is geen instellingenobject.');
         }
-        if (migrated.theme === 'geel') migrated.theme = 'creme';
-        applyProfile(migrated, true);
-        saveProfile();
-        return;
+        return value;
+      } catch (error) {
+        console.warn(`Ongeldige opgeslagen instellingen in ${key}:`, error);
+        showToast('Opgeslagen instellingen konden niet worden hersteld. Standaardinstellingen worden gebruikt.');
+        return null;
       }
-
-      // Migratie van eventuele eerdere instellingen
-      const oldRaw = localStorage.getItem(OLD_SETTINGS_KEY);
-      if (oldRaw) {
-        const old = JSON.parse(oldRaw);
-        const migrated = {
-          font: old.opendyslexic ? 'OpenDyslexic' : 'Lexend',
-          fontSize: old.largeFont ? 24 : 20,
-          lineHeight: old.largeSpacing ? 2.2 : 1.8,
-          theme: old.darkMode ? 'donker' : 'creme',
-          showSyllables: old.showSyllables !== undefined ? old.showSyllables : true,
-          colorSyllables: old.colorSyllables !== undefined ? old.colorSyllables : true,
-          readingProfile: 'personal',
-          help: {
-            ...DEFAULT_PROFILE.help,
-            longSounds: false,
-            doubleSounds: false,
-            difficultSounds: false
-          }
-        };
-        applyProfile(migrated, true);
-        saveProfile();
-        return;
-      }
-
-      // Standaard profiel
-      applyProfile(DEFAULT_PROFILE, true);
-    } catch (e) {
-      console.warn('Kon leesprofiel niet laden:', e);
-      applyProfile(DEFAULT_PROFILE, true);
     }
+    const saved = readStoredProfile(PROFILE_KEY);
+    if (saved) {
+      const migrated = { ...saved };
+      const legacyProfile = !Object.hasOwn(saved, 'readingProfile') &&
+        (['sounds', 'syllables'].includes(saved.readingMode) ||
+          typeof saved.showSyllables === 'boolean' || typeof saved.colorSyllables === 'boolean');
+      if (legacyProfile) {
+        migrated.readingProfile = saved.readingMode === 'sounds' ? 'sounds' : 'personal';
+        migrated.showSyllables = typeof saved.showSyllables === 'boolean' ? saved.showSyllables : true;
+        if (migrated.readingProfile === 'personal' && !migrated.showSyllables) {
+          migrated.help = { ...DEFAULT_PROFILE.help, longSounds: false, doubleSounds: false, difficultSounds: false };
+        }
+      }
+      if (migrated.theme === 'geel') migrated.theme = 'creme';
+      applyProfile(migrated, true);
+      saveProfile();
+      return;
+    }
+    const old = readStoredProfile(OLD_SETTINGS_KEY);
+    const legacyKeys = ['opendyslexic', 'largeFont', 'largeSpacing', 'darkMode', 'showSyllables', 'colorSyllables'];
+    if (old) {
+      for (const key of legacyKeys) {
+        if (Object.hasOwn(old, key) && typeof old[key] !== 'boolean') {
+          console.warn(`Ongeldige oude leesinstelling ${key}; standaardwaarde wordt gebruikt.`);
+        }
+      }
+    }
+    if (old && legacyKeys.some(key => typeof old[key] === 'boolean')) {
+      const migrated = {
+        font: old.opendyslexic === true ? 'OpenDyslexic' : 'Lexend',
+        fontSize: old.largeFont === true ? 24 : 20,
+        lineHeight: old.largeSpacing === true ? 2.2 : 1.8,
+        theme: old.darkMode === true ? 'donker' : 'creme',
+        showSyllables: typeof old.showSyllables === 'boolean' ? old.showSyllables : true,
+        colorSyllables: typeof old.colorSyllables === 'boolean' ? old.colorSyllables : true,
+        readingProfile: 'personal',
+        help: {
+          ...DEFAULT_PROFILE.help,
+          longSounds: false,
+          doubleSounds: false,
+          difficultSounds: false
+        }
+      };
+      applyProfile(migrated, true);
+      saveProfile();
+      return;
+    }
+    if (old) console.warn('Geen herkenbare oude leesinstellingen; standaardprofiel wordt gebruikt.');
+    applyProfile(DEFAULT_PROFILE, true);
+    saveProfile();
   }
 
   // --- Event Listeners voor Direct Effect ---
@@ -387,9 +453,24 @@ document.addEventListener('DOMContentLoaded', () => {
       setReadingProfile(button.dataset.readingProfile);
       saveProfile();
     });
+    button.addEventListener('keydown', event => {
+      const keys = ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'];
+      if (!keys.includes(event.key)) return;
+      event.preventDefault();
+      const buttons = Array.from(readingProfileButtons);
+      const index = buttons.indexOf(button);
+      const nextIndex = event.key === 'Home' ? 0 : event.key === 'End' ? buttons.length - 1 :
+        (index + (['ArrowLeft', 'ArrowUp'].includes(event.key) ? -1 : 1) + buttons.length) % buttons.length;
+      const next = buttons[nextIndex];
+      next.focus();
+      next.click();
+    });
   });
-  Object.values(helpControls).forEach(control => {
+  Object.entries(helpControls).forEach(([key, control]) => {
     control.addEventListener('change', () => {
+      if (['longSounds', 'doubleSounds', 'difficultSounds'].includes(key)) {
+        toggleShowSyllables.checked = false;
+      }
       setReadingProfile(readingProfile);
       saveProfile();
     });
@@ -2200,6 +2281,14 @@ Op een dag vond Pip een geheimzinnig kaartje op de grond. Er stond op: 'De schat
     btnStopAudio.style.display = 'none';
   }
 
+  function handleSpeechError(event, run) {
+    if (run !== speechRun) return;
+    stopSpeaking();
+    if (event.error === 'canceled' || event.error === 'interrupted') return;
+    console.warn('Voorlezen is mislukt:', event.error);
+    showToast('Voorlezen is mislukt. Probeer opnieuw of kies een andere Nederlandse stem in je browser.');
+  }
+
   btnStopAudio.addEventListener('click', stopSpeaking);
 
   function speakSingleBlock(text, buttonElement, blockElement) {
@@ -2237,9 +2326,7 @@ Op een dag vond Pip een geheimzinnig kaartje op de grond. Er stond op: 'De schat
       if (run === speechRun) stopSpeaking();
     };
 
-    currentUtterance.onerror = () => {
-      if (run === speechRun) stopSpeaking();
-    };
+    currentUtterance.onerror = event => handleSpeechError(event, run);
 
     synth.speak(currentUtterance);
   }
@@ -2288,9 +2375,7 @@ Op een dag vond Pip een geheimzinnig kaartje op de grond. Er stond op: 'De schat
         speakNext();
       };
 
-      currentUtterance.onerror = () => {
-        if (run === speechRun) stopSpeaking();
-      };
+      currentUtterance.onerror = event => handleSpeechError(event, run);
 
       synth.speak(currentUtterance);
     }

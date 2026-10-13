@@ -21,7 +21,49 @@
         if (!condition) throw new Error(message);
         checks.push(`PASS: ${message}`);
       }
-      function loadApp() {
+      async function waitUntil(predicate, message) {
+        const deadline = performance.now() + 10000;
+        while (!predicate()) {
+          if (performance.now() > deadline) throw new Error(message);
+          await new Promise(resolve => setTimeout(resolve, 20));
+        }
+      }
+      function rgb(color) {
+        return color.match(/[\d.]+/g).map(Number);
+      }
+      function contrast(foreground, background) {
+        const luminance = color => color.slice(0, 3).map(value => {
+          const channel = value / 255;
+          return channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
+        }).reduce((sum, value, index) => sum + value * [0.2126, 0.7152, 0.0722][index], 0);
+        const values = [luminance(foreground), luminance(background)].sort((a, b) => b - a);
+        return (values[0] + 0.05) / (values[1] + 0.05);
+      }
+      function backgroundOf(app, element) {
+        const ancestors = [];
+        for (let current = element; current; current = current.parentElement) ancestors.unshift(current);
+        return ancestors.reduce((background, current) => {
+          const color = rgb(app.getComputedStyle(current).backgroundColor);
+          const alpha = color[3] ?? 1;
+          return color.slice(0, 3).map((value, index) => value * alpha + background[index] * (1 - alpha));
+        }, [255, 255, 255]);
+      }
+      async function loadApp(denyStorage = false) {
+        let markup;
+        if (denyStorage) {
+          const response = await fetch('../index.html');
+          if (!response.ok) throw new Error('Testapp voor geblokkeerde opslag kon niet worden geladen');
+          markup = (await response.text()).replace('<head>', `<head>
+            <base href="${new URL('../', location.href).href}">
+            <script>
+              window.testErrors = [];
+              addEventListener('error', event => testErrors.push(event.message));
+              addEventListener('unhandledrejection', event => testErrors.push(String(event.reason)));
+              Storage.prototype.getItem = Storage.prototype.setItem = function () {
+                throw new DOMException('Opslag geblokkeerd', 'SecurityError');
+              };
+            <\/script>`);
+        }
         return new Promise((resolve, reject) => {
           frame.onload = () => {
             if (!frame.contentWindow.LeesBlokjes) {
@@ -30,7 +72,11 @@
             }
             resolve(frame.contentWindow);
           };
-          frame.src = '../index.html';
+          if (denyStorage) frame.srcdoc = markup;
+          else {
+            frame.removeAttribute('srcdoc');
+            frame.src = '../index.html';
+          }
         });
       }
       function createDocx(app, text) {
@@ -120,9 +166,9 @@
           if (doc.getElementById('text-input').value.trim()) doc.getElementById('btn-convert').click();
         };
         const isMode = (document, mode) =>
-          document.querySelector(`[data-reading-profile="${mode === 'syllables' ? 'personal' : 'sounds'}"]`).getAttribute('aria-pressed') === 'true';
+          document.querySelector(`[data-reading-profile="${mode === 'syllables' ? 'personal' : 'sounds'}"]`).getAttribute('aria-checked') === 'true';
         const content = () => doc.querySelector('.blokje-content');
-        assert(doc.querySelector('[data-reading-profile="navigator"]').getAttribute('aria-pressed') === 'true',
+        assert(doc.querySelector('[data-reading-profile="navigator"]').getAttribute('aria-checked') === 'true',
           'Klanknavigator is het standaardprofiel');
         assert(doc.querySelectorAll('[data-reading-profile]').length === 4 &&
           !doc.querySelector('[data-reading-mode], .sound-guide, #btn-close-sidebar, #btn-toggle-sidebar') &&
@@ -294,7 +340,7 @@
             content().textContent === word &&
             Array.from(content().querySelector('.sound-word').childNodes).every(node => node.nodeType === 1),
             `Geen gewone woordtekst of lettergrepen in klankuitvoer: ${word}`);
-          assert(doc.querySelectorAll('[data-reading-profile][aria-pressed="true"]').length === 1,
+          assert(doc.querySelectorAll('[data-reading-profile][aria-checked="true"]').length === 1,
             `Leesprofielen zijn wederzijds exclusief: ${word}`);
           doc.getElementById('btn-convert').click();
           assert(content().innerHTML.includes('sound-'), `Conversieknop behoudt Klankmodus: ${word}`);
@@ -331,6 +377,23 @@
             content().querySelectorAll('.word-group').length === 6 &&
             doc.getElementById('upload-success').style.display === 'flex',
             `Echte upload behoudt tekst en klankmodus: ${file.name}`);
+        }
+        for (const [method, file] of [['change', createDocx(app, 'school nieuws')],
+          ['drop', createPdf(app, 'school leeuw')]]) {
+          doc.getElementById('btn-remove-doc').click();
+          const transfer = new app.DataTransfer();
+          transfer.items.add(file);
+          if (method === 'change') {
+            doc.getElementById('file-input').files = transfer.files;
+            doc.getElementById('file-input').dispatchEvent(new app.Event('change', { bubbles: true }));
+          } else {
+            doc.getElementById('upload-dropzone').dispatchEvent(new app.DragEvent('drop', { dataTransfer: transfer, bubbles: true }));
+          }
+          await waitUntil(() => doc.getElementById('upload-success').style.display === 'flex' ||
+            doc.getElementById('upload-alert').style.display === 'flex', 'Documentinteractie bleef bezig');
+          assert(content().textContent === (method === 'change' ? 'school nieuws' : 'school leeuw') &&
+            doc.getElementById('upload-success').style.display === 'flex',
+            `Bestandskeuze/drop-event voert echte documentimport uit: ${method}`);
         }
         doc.getElementById('btn-clear').click();
         choose('syllables');
@@ -396,7 +459,7 @@
         app.LeesBlokjes.renderBlocks(['meeuw']);
         assert(doc.querySelector('.sound-dots').textContent === 'eeuw', 'Nieuwe uitvoer gebruikt de herstelde modus');
         doc.getElementById('btn-reset-profile').click();
-        assert(doc.querySelector('[data-reading-profile="navigator"]').getAttribute('aria-pressed') === 'true' &&
+        assert(doc.querySelector('[data-reading-profile="navigator"]').getAttribute('aria-checked') === 'true' &&
           doc.querySelector('.blokje-content .sound'), 'Profiel herstellen schakelt bestaande uitvoer terug naar Klanknavigator');
         localStorage.setItem(keys[0], JSON.stringify({ showSyllables: false, colorSyllables: false, theme: 'groen' }));
         app = await loadApp();
@@ -632,6 +695,27 @@
             spoken[readingStart + 1].text === blockTexts[1],
             'Alles voorlezen gaat in alineablokken door naar het volgende blok');
           doc.getElementById('btn-stop-audio').click();
+          doc.getElementById('btn-read-all').click();
+          spoken[spoken.length - 1].onerror({ error: 'synthesis-failed' });
+          assert(!speaking && doc.getElementById('toast-notice').textContent.includes('Voorlezen is mislukt') &&
+            doc.getElementById('btn-stop-audio').style.display === 'none',
+            'Spraakfouten worden zichtbaar gemeld en herstellen de bediening');
+          const errorNotice = doc.getElementById('toast-notice').textContent;
+          const individualButton = doc.querySelector('.btn-speak-block');
+          individualButton.click();
+          await new Promise(resolve => app.requestAnimationFrame(resolve));
+          await Promise.all(individualButton.getAnimations().filter(animation =>
+            animation.effect.getTiming().iterations !== Infinity).map(animation => animation.finished));
+          assert(contrast(rgb(app.getComputedStyle(individualButton).color), backgroundOf(app, individualButton)) >= 4.5,
+            'De actieve individuele voorleesknop heeft leesbaar contrast >= 4.5');
+          spoken[spoken.length - 1].onerror({ error: 'interrupted' });
+          assert(!speaking && doc.getElementById('toast-notice').textContent === errorNotice,
+            'Normaal onderbreken van spraak veroorzaakt geen nieuwe foutmelding');
+          individualButton.click();
+          spoken[spoken.length - 1].onerror({ error: 'audio-busy' });
+          assert(!speaking && doc.getElementById('btn-stop-audio').style.display === 'none' &&
+            !doc.querySelector('.btn-speak-block.speaking'),
+            'Een individuele spraakfout herstelt eveneens de luisterknoppen');
           doc.querySelector('[data-reading-profile="focus"]').click();
           chooseLayout('continuous');
           doc.getElementById('btn-read-all').click();
@@ -771,15 +855,15 @@
         const profileOrder = Array.from(doc.querySelector('.profile-grid').children).map(item =>
           item.querySelector('.profile-label-title').textContent);
         assert(JSON.stringify(profileOrder) === JSON.stringify([
-          'Lettertype', 'Lettergrootte', 'Regelafstand', 'Woordafstand',
-          'Leesprofiel', 'Achtergrondkleur', 'Tekstweergave'
+          'Leesprofiel', 'Lettertype', 'Lettergrootte', 'Regelafstand', 'Woordafstand',
+          'Achtergrondkleur', 'Tekstweergave'
         ]), 'Nieuwe instellingenvolgorde en Tekstweergave direct onder Achtergrondkleur');
         assert(JSON.stringify(Array.from(doc.querySelectorAll('.theme-name')).map(item => item.textContent)) ===
           JSON.stringify(['Crème', 'Warmblauw', 'Warmgroen', 'Donker']),
           'Alleen de vier gevraagde warme achtergrondthemas zijn beschikbaar');
         for (const profile of ['navigator', 'focus', 'personal', 'sounds']) {
           selectProfile(profile);
-          assert(doc.querySelectorAll('[data-reading-profile][aria-pressed="true"]').length === 1 &&
+          assert(doc.querySelectorAll('[data-reading-profile][aria-checked="true"]').length === 1 &&
             JSON.parse(localStorage.getItem(keys[0])).readingProfile === profile &&
             doc.getElementById('personal-options').hidden === (profile !== 'personal'),
             `Exclusieve profielkeuze, ondersteuning en opslag: ${profile}`);
@@ -851,10 +935,13 @@
         showSyllables.checked = true;
         showSyllables.dispatchEvent(new app.Event('change'));
         assert(doc.querySelector('.blokje-content .syl') &&
-          ['help-long', 'help-double', 'help-difficult'].every(id => doc.getElementById(id).disabled),
-          'Bestaande lettergrepen blijven beschikbaar zonder conflicterende klankschakelaars');
-        showSyllables.checked = false;
-        showSyllables.dispatchEvent(new app.Event('change'));
+          ['help-long', 'help-double', 'help-difficult'].every(id => !doc.getElementById(id).disabled),
+          'Bestaande lettergrepen blijven beschikbaar en klankschakelaars blijven bedienbaar');
+        help('help-long', true);
+        assert(!doc.querySelector('.blokje-content .syl') && doc.querySelector('.sound-yellow') &&
+          !showSyllables.checked,
+          'Klankhulp schakelt direct van lettergrepen naar de geselecteerde klankmarkeringen');
+        help('help-long', false);
         assert(!doc.querySelector('.blokje-content .syl, .blokje-content .sound') &&
           ['help-long', 'help-double', 'help-difficult'].every(id => !doc.getElementById(id).disabled),
           'Terugschakelen behoudt selectieve voorkeuren en activeert klankschakelaars');
@@ -892,7 +979,7 @@
           localStorage.setItem(keys[4], 'true');
           app = await loadApp();
           doc = app.document;
-          assert(doc.querySelector(`[data-reading-profile="${profile}"]`).getAttribute('aria-pressed') === 'true' &&
+          assert(doc.querySelector(`[data-reading-profile="${profile}"]`).getAttribute('aria-checked') === 'true' &&
             app.getComputedStyle(doc.querySelector('.sidebar-column')).display !== 'none' &&
             !doc.querySelector('#btn-toggle-sidebar'),
             `Profielherstel na verversen en oude ingeklapte status genegeerd: ${profile}`);
@@ -927,6 +1014,180 @@
           JSON.parse(localStorage.getItem(keys[0])).readingProfile === 'navigator' &&
           doc.getElementById('help-speech').checked,
           'Onbekende opgeslagen profielwaarden worden veilig naar standaardvoorkeuren genormaliseerd');
+        localStorage.removeItem(keys[1]);
+        for (const value of ['{', 'null', '[]', '"klanken"', '42', '{}',
+          '{"font":"__proto__","fontSize":null,"lineHeight":"Infinity","wordSpacing":false,"showSyllables":"false","help":[]}',
+          '{"readingProfile":null,"theme":"onbekend","readingLayout":17,"lineHeight":null,"help":null}']) {
+          localStorage.setItem(keys[0], value);
+          app = await loadApp();
+          doc = app.document;
+          const state = JSON.parse(localStorage.getItem(keys[0]));
+          assert(state.readingProfile === 'navigator' && state.theme === 'creme' &&
+            state.readingLayout === 'blocks' && state.font === 'Lexend' && state.fontSize === 20 &&
+            state.lineHeight === 1.8 && state.wordSpacing === 1 && state.showSyllables === false &&
+            state.help.speech === true && doc.getElementById('profile-font').value === 'Lexend',
+            `Ongeldige opslag herstelt veilige, consistente standaardinstellingen: ${value}`);
+          doc.getElementById('text-input').value = 'school nieuws';
+          doc.getElementById('btn-convert').click();
+          assert(content().textContent === 'school nieuws' && content().querySelector('.sound'),
+            'Tekstverwerking blijft werken na ongeldige opslag');
+        }
+        keys.forEach(key => localStorage.removeItem(key));
+        app = await loadApp();
+        doc = app.document;
+        for (const value of ['{}', '{"darkMode":"false","showSyllables":1}', '[]', 'null', '{']) {
+          localStorage.removeItem(keys[0]);
+          localStorage.setItem(keys[1], value);
+          app = await loadApp();
+          doc = app.document;
+          assert(doc.body.dataset.activeProfile === 'navigator' && doc.body.dataset.theme === 'creme' &&
+            JSON.parse(localStorage.getItem(keys[0])).readingLayout === 'blocks',
+            `Ongeldige oude instellingen herstellen het standaardprofiel: ${value}`);
+        }
+        keys.forEach(key => localStorage.removeItem(key));
+        app = await loadApp();
+        doc = app.document;
+        const routeText = 'school schrijfboek nieuws leeuw vriendelijk ruimteschip!\n\n"Nederland, Europa?" Nog een zin.';
+        const input = doc.getElementById('text-input');
+        input.value = 'school';
+        input.dispatchEvent(new app.InputEvent('input', { bubbles: true, inputType: 'insertText', data: 'school' }));
+        assert(doc.getElementById('char-counter').textContent === '1 woord', 'Typen werkt met enkelvoudige woordentelling');
+        input.value = routeText;
+        input.dispatchEvent(new app.InputEvent('input', { bubbles: true, inputType: 'insertFromPaste', data: routeText }));
+        assert(doc.getElementById('char-counter').textContent === `${routeText.split(/\s+/).length} woorden`,
+          'Plakken met meerdere alineas werkt met correcte woordentelling');
+        doc.getElementById('btn-convert').click();
+        assert(doc.querySelectorAll('.reading-unit').length === 2 && outputText() === routeText,
+          'Maak leesvriendelijk verwerkt meerdere alineas en leestekens');
+        input.value = `${routeText}\n\nGewijzigde tekst.`;
+        input.dispatchEvent(new app.Event('input'));
+        doc.getElementById('btn-convert').click();
+        const processedText = input.value;
+        assert(doc.querySelectorAll('.reading-unit').length === 3 && outputText() === processedText,
+          'Opnieuw verwerken vervangt daadwerkelijk de oude uitvoer');
+        for (const profile of ['navigator', 'focus', 'personal', 'sounds']) {
+          selectProfile(profile);
+          for (const layout of ['blocks', 'continuous']) {
+            chooseLayout(layout);
+            assert(outputText() === processedText && input.value === processedText &&
+              doc.querySelectorAll('.reading-unit').length === (layout === 'blocks' ? 3 : 1),
+              `Echte gebruikersroute schakelt direct zonder verwerkklik: ${profile}/${layout}`);
+          }
+        }
+        const profileGroup = doc.querySelector('.reading-profile-picker');
+        assert(profileGroup.getAttribute('role') === 'radiogroup' &&
+          doc.querySelectorAll('[data-reading-profile][role="radio"][tabindex="0"]').length === 1 &&
+          !doc.querySelector('.profile-choice-description') &&
+          doc.getElementById('reading-profile-description').textContent === 'Kies jouw leeshulp.',
+          'Compacte profielkaarten gebruiken een toegankelijke radiogroep met een tabstop');
+        let selected = doc.querySelector('[data-reading-profile][aria-checked="true"]');
+        for (const [key, expected] of [['ArrowRight', 'navigator'], ['ArrowDown', 'focus'],
+          ['End', 'sounds'], ['ArrowLeft', 'personal'], ['Home', 'navigator'], ['ArrowUp', 'sounds']]) {
+          selected.dispatchEvent(new app.KeyboardEvent('keydown', { key, bubbles: true }));
+          selected = doc.querySelector('[data-reading-profile][aria-checked="true"]');
+          assert(selected.dataset.readingProfile === expected && doc.activeElement === selected &&
+            selected.tabIndex === 0 && doc.querySelectorAll('[data-reading-profile][tabindex="0"]').length === 1,
+            `Radiogroep verplaatst selectie, focus en tabstop: ${key}`);
+        }
+        for (const [width, height] of [[1920, 1080], [1366, 768], [390, 844], [320, 844]]) {
+          frame.style.width = `${width}px`;
+          frame.style.height = `${height}px`;
+          await new Promise(resolve => app.requestAnimationFrame(resolve));
+          const profileCards = Array.from(doc.querySelectorAll('.reading-profile-choice')).map(card => card.getBoundingClientRect());
+          const themeCards = Array.from(doc.querySelectorAll('.theme-option')).map(card => card.getBoundingClientRect());
+          for (const [name, cards] of [['profielen', profileCards], ['achtergronden', themeCards]]) {
+            assert(cards.every(card => Math.abs(card.width - cards[0].width) < 1 && Math.abs(card.height - cards[0].height) < 1) &&
+              cards[0].top === cards[1].top && cards[2].top === cards[3].top && cards[2].top > cards[0].top,
+              `Gelijkwaardige 2x2-kaarten, inclusief Donker naast Warmgroen: ${name} op ${width}px`);
+          }
+          const personalTitle = doc.querySelector('[data-reading-profile="personal"] .profile-choice-title');
+          assert(personalTitle.getBoundingClientRect().height <= parseFloat(app.getComputedStyle(personalTitle).lineHeight) * 2 + 1 &&
+            Array.from(doc.querySelectorAll('.reading-profile-choice')).every(card => card.scrollWidth <= card.clientWidth) &&
+            doc.documentElement.scrollWidth <= app.innerWidth,
+            `Geen overlappende tekst, maximaal twee titelregels en geen pagina-overflow op ${width}px`);
+          const layouts = Array.from(doc.querySelectorAll('[data-reading-layout]')).map(button => button.getBoundingClientRect());
+          assert(Math.abs(layouts[0].width - layouts[1].width) < 1 && layouts[0].height === layouts[1].height,
+            `Tekstweergaveknoppen zijn exact even groot op ${width}px`);
+        }
+        chooseLayout('blocks');
+        for (const theme of ['creme', 'blauw', 'groen', 'donker']) {
+          doc.getElementById(`theme-${theme}`).click();
+          assert(doc.body.dataset.theme === theme && JSON.parse(localStorage.getItem(keys[0])).theme === theme,
+            `Achtergrond verandert direct en wordt opgeslagen: ${theme}`);
+          selectProfile('focus');
+          await new Promise(resolve => app.requestAnimationFrame(resolve));
+          await Promise.all(doc.getAnimations().filter(animation =>
+            animation.effect.getTiming().iterations !== Infinity).map(animation => animation.finished));
+          doc.querySelector('.word-group').click();
+          const words = doc.querySelectorAll('.word-group');
+          const faded = words[1];
+          const background = backgroundOf(app, faded);
+          const fadedStyle = app.getComputedStyle(faded);
+          const effective = rgb(fadedStyle.color).slice(0, 3).map((channel, index) =>
+            channel * Number(fadedStyle.opacity) + background[index] * (1 - Number(fadedStyle.opacity)));
+          assert(contrast(effective, background) >= 4.5 &&
+            contrast(rgb(app.getComputedStyle(words[0]).color), backgroundOf(app, words[0])) >= 4.5,
+            `Actieve en gedimde focustekst blijft leesbaar met contrast >= 4.5: ${theme}`);
+          selectProfile('navigator');
+          await new Promise(resolve => app.requestAnimationFrame(resolve));
+          await Promise.all(doc.getAnimations().filter(animation =>
+            animation.effect.getTiming().iterations !== Infinity).map(animation => animation.finished));
+          assert(Array.from(doc.querySelectorAll('.sound')).every(sound =>
+            contrast(rgb(app.getComputedStyle(sound).color), backgroundOf(app, sound)) >= 4.5),
+            `Klankkleuren behouden leesbaar tekstcontrast >= 4.5: ${theme}`);
+          for (const element of [doc.querySelector('.btn-speak-block'),
+            doc.querySelector('.reading-profile-choice[aria-checked="true"]'), doc.querySelector('.theme-option:has(input:checked)')]) {
+            if (!element) continue;
+            assert(contrast(rgb(app.getComputedStyle(element).color), backgroundOf(app, element)) >= 4.5,
+              `Knoptekst is leesbaar in ${theme}: ${element.className}`);
+          }
+        }
+        doc.getElementById('btn-clear').click();
+        assert(input.value === '' && !doc.querySelector('.reading-unit') &&
+          doc.getElementById('char-counter').textContent === '0 woorden', 'Wissen verwijdert tekst, resultaten en woordentelling');
+        doc.getElementById('btn-sample').click();
+        assert(input.value.length > 100 && doc.querySelector('.reading-unit') &&
+          parseInt(doc.getElementById('char-counter').textContent, 10) === input.value.trim().split(/\s+/).length,
+          'Voorbeeldknop verwerkt echte voorbeeldtekst en actualiseert de teller');
+        const ids = Array.from(doc.querySelectorAll('[id]')).map(element => element.id);
+        assert(new Set(ids).size === ids.length, 'De applicatie heeft geen dubbele IDs');
+        doc.getElementById('tab-btn-web').click();
+        const urlInput = doc.getElementById('web-url-input');
+        urlInput.value = '';
+        doc.getElementById('btn-fetch-webpage').click();
+        assert(doc.getElementById('web-alert').style.display === 'flex' &&
+          doc.getElementById('web-alert-text').textContent.includes('Voer eerst een link'),
+          'Een lege webimport toont een Nederlandse foutmelding');
+        const fetchBeforeFailureTest = app.fetch;
+        try {
+          app.fetch = () => Promise.reject(new TypeError('Netwerk geweigerd tijdens regressietest'));
+          urlInput.value = 'https://example.org/artikel';
+          doc.getElementById('btn-fetch-webpage').click();
+          await waitUntil(() => doc.getElementById('web-alert').style.display === 'flex',
+            'Mislukte webimport bleef bezig');
+          assert(doc.getElementById('web-processing').style.display === 'none' &&
+            input.value.length > 100 && doc.querySelector('.reading-unit'),
+            'Mislukte webimport herstelt de bediening en behoudt tekst en uitvoer');
+        } finally {
+          app.fetch = fetchBeforeFailureTest;
+        }
+        doc.getElementById('btn-clear-url').click();
+        assert(urlInput.value === '' && doc.getElementById('web-alert').style.display === 'none',
+          'Wissen van een webadres verwijdert ook de importfout');
+        frame.style.width = '280px';
+        await new Promise(resolve => app.requestAnimationFrame(resolve));
+        assert(['.reading-profile-picker', '.theme-picker', '.reading-layout-section .reading-mode-picker']
+          .every(selector => app.getComputedStyle(doc.querySelector(selector)).gridTemplateColumns.split(' ').length === 1),
+          'Extreem smalle schermen gebruiken een leesbare eenkolomsfallback');
+        app = await loadApp(true);
+        doc = app.document;
+        doc.getElementById('text-input').value = 'school nieuws\n\nNederland!';
+        doc.getElementById('btn-convert').click();
+        selectProfile('focus');
+        chooseLayout('continuous');
+        assert(app.testErrors.length === 0 && doc.body.dataset.activeProfile === 'focus' &&
+          doc.querySelectorAll('.reading-unit').length === 1 && outputText() === 'school nieuws\n\nNederland!',
+          'Geblokkeerde localStorage veroorzaakt geen startupfout en blokkeert verwerking of instellingen niet');
         frame.style.width = '100%';
         frame.style.height = '800px';
         results.textContent = `${checks.join('\n')}\n\n${checks.length} tests geslaagd.`;

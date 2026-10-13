@@ -60,6 +60,28 @@
           </div>
 
           <div class="profile-grid">
+            <section class="profile-item reading-profile-section" aria-labelledby="reading-profile-title">
+              <h3 id="reading-profile-title" class="profile-label-title">Leesprofiel</h3>
+              <p id="reading-profile-description" class="reading-profile-description">Kies jouw leeshulp.</p>
+              <div class="reading-profile-picker" role="radiogroup" aria-labelledby="reading-profile-title" aria-describedby="reading-profile-description">
+                <button type="button" role="radio" class="reading-profile-choice" data-reading-profile="navigator" aria-checked="true" tabindex="0" aria-description="Kleuren helpen klanken herkennen.">
+                  <span class="profile-choice-title">Klanknavigator</span>
+                  <span class="profile-choice-indicator" aria-hidden="true">✓</span>
+                </button>
+                <button type="button" role="radio" class="reading-profile-choice" data-reading-profile="focus" aria-checked="false" tabindex="-1" aria-description="Leg nadruk op het actieve leesdeel.">
+                  <span class="profile-choice-title">Focuslezen</span>
+                  <span class="profile-choice-indicator" aria-hidden="true">✓</span>
+                </button>
+                <button type="button" role="radio" class="reading-profile-choice" data-reading-profile="personal" aria-checked="false" tabindex="-1" aria-description="Kies zelf welke ondersteuning zichtbaar is.">
+                  <span class="profile-choice-title">Persoonlijke hulp</span>
+                  <span class="profile-choice-indicator" aria-hidden="true">✓</span>
+                </button>
+                <button type="button" role="radio" class="reading-profile-choice" data-reading-profile="sounds" aria-checked="false" tabindex="-1" aria-description="Toon uitgebreide klankweergave.">
+                  <span class="profile-choice-title">Klanken</span>
+                  <span class="profile-choice-indicator" aria-hidden="true">✓</span>
+                </button>
+              </div>
+            </section>
             <!-- 1. Lettertype -->
             <div class="profile-item profile-item-font">
               <label for="profile-font" class="profile-label">
@@ -154,29 +176,6 @@
                 <option value="2.4" label="Zeer ruim"></option>
               </datalist>
             </div>
-
-            <section class="profile-item reading-profile-section" aria-labelledby="reading-profile-title">
-              <h3 id="reading-profile-title" class="profile-label-title">Leesprofiel</h3>
-              <p id="reading-profile-description" class="reading-profile-description">Kies de manier waarop de tekst wordt weergegeven.</p>
-              <div class="reading-profile-picker" role="group" aria-labelledby="reading-profile-title" aria-describedby="reading-profile-description">
-                <button type="button" class="reading-profile-choice" data-reading-profile="navigator" aria-pressed="true">
-                  <span class="profile-choice-title">Klanknavigator</span>
-                  <span class="profile-choice-description">Kleuren helpen klanken herkennen.</span>
-                </button>
-                <button type="button" class="reading-profile-choice" data-reading-profile="focus" aria-pressed="false">
-                  <span class="profile-choice-title">Focuslezen</span>
-                  <span class="profile-choice-description">Leg nadruk op het actieve leesdeel.</span>
-                </button>
-                <button type="button" class="reading-profile-choice" data-reading-profile="personal" aria-pressed="false">
-                  <span class="profile-choice-title">Persoonlijke hulp</span>
-                  <span class="profile-choice-description">Kies zelf welke ondersteuning zichtbaar is.</span>
-                </button>
-                <button type="button" class="reading-profile-choice" data-reading-profile="sounds" aria-pressed="false">
-                  <span class="profile-choice-title">Klanken</span>
-                  <span class="profile-choice-description">Toon uitgebreide klankweergave.</span>
-                </button>
-              </div>
-            </section>
 
             <div class="profile-item profile-item-theme">
               <div class="profile-label">
