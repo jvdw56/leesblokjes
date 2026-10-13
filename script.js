@@ -1097,33 +1097,144 @@ Op een dag vond Pip een geheimzinnig kaartje op de grond. Er stond op: 'De schat
     });
   }
 
-  // --- 9. Import Tabs Wisselen (Document vs Webpagina vs Bookmarklet) ---
-  function switchImportTab(targetTab) {
-    const isDoc = targetTab === 'doc';
-    const isWeb = targetTab === 'web';
-    const isBm = targetTab === 'bookmarklet';
+  // --- 9. Inklapbare Importsecties (Accordion: Document, Webpagina, Bookmarklet BETA) ---
+  const IMPORT_SECTION_KEY = 'leesblokjes_actieve_import_sectie';
+  const LAST_SECTION_KEY = 'leesblokjes_laatste_geopende_sectie';
 
-    if (tabBtnDoc) {
-      tabBtnDoc.classList.toggle('is-active', isDoc);
-      tabBtnDoc.setAttribute('aria-selected', String(isDoc));
+  const SECTION_CONFIG = {
+    doc: {
+      btn: tabBtnDoc,
+      panel: importPanelDoc,
+      item: document.getElementById('accordion-item-doc'),
+      indicator: document.getElementById('indicator-doc')
+    },
+    web: {
+      btn: tabBtnWeb,
+      panel: importPanelWeb,
+      item: document.getElementById('accordion-item-web'),
+      indicator: document.getElementById('indicator-web')
+    },
+    bookmarklet: {
+      btn: tabBtnBookmarklet,
+      panel: importPanelBookmarklet,
+      item: document.getElementById('accordion-item-bookmarklet'),
+      indicator: document.getElementById('indicator-bookmarklet')
     }
-    if (tabBtnWeb) {
-      tabBtnWeb.classList.toggle('is-active', isWeb);
-      tabBtnWeb.setAttribute('aria-selected', String(isWeb));
-    }
-    if (tabBtnBookmarklet) {
-      tabBtnBookmarklet.classList.toggle('is-active', isBm);
-      tabBtnBookmarklet.setAttribute('aria-selected', String(isBm));
-    }
+  };
 
-    if (importPanelDoc) importPanelDoc.style.display = isDoc ? 'block' : 'none';
-    if (importPanelWeb) importPanelWeb.style.display = isWeb ? 'block' : 'none';
-    if (importPanelBookmarklet) importPanelBookmarklet.style.display = isBm ? 'block' : 'none';
+  /**
+   * Bepaalt welke sectie momenteel geopend is ('doc' | 'web' | 'bookmarklet' | 'none').
+   */
+  function getActiveImportSection() {
+    for (const key of ['doc', 'web', 'bookmarklet']) {
+      const cfg = SECTION_CONFIG[key];
+      if (cfg && cfg.panel && cfg.panel.style.display !== 'none') {
+        return key;
+      }
+    }
+    return 'none';
   }
 
-  if (tabBtnDoc) tabBtnDoc.addEventListener('click', () => switchImportTab('doc'));
-  if (tabBtnWeb) tabBtnWeb.addEventListener('click', () => switchImportTab('web'));
-  if (tabBtnBookmarklet) tabBtnBookmarklet.addEventListener('click', () => switchImportTab('bookmarklet'));
+  /**
+   * Opent of sluit een importsectie (slechts één tegelijk geopend).
+   * @param {'doc'|'web'|'bookmarklet'|'none'} targetSection
+   * @param {boolean} [forceOpen=false]
+   * @param {boolean} [save=true]
+   */
+  function toggleImportSection(targetSection, forceOpen = false, save = true) {
+    const currentActive = getActiveImportSection();
+    let nextActive = targetSection;
+
+    // Als de gebruiker klikt op de sectie die al geopend is (en niet forceOpen), sluiten we die sectie
+    if (!forceOpen && currentActive === targetSection) {
+      nextActive = 'none';
+    }
+
+    // Pas toe op alle secties (slechts één geopend houden)
+    for (const [key, cfg] of Object.entries(SECTION_CONFIG)) {
+      const isOpen = (key === nextActive);
+
+      if (cfg.btn) {
+        cfg.btn.classList.toggle('is-open', isOpen);
+        cfg.btn.classList.toggle('is-active', isOpen);
+        cfg.btn.setAttribute('aria-expanded', String(isOpen));
+      }
+
+      if (cfg.item) {
+        cfg.item.classList.toggle('is-expanded', isOpen);
+      }
+
+      if (cfg.panel) {
+        cfg.panel.style.display = isOpen ? 'block' : 'none';
+      }
+
+      if (cfg.indicator) {
+        if (isOpen) {
+          cfg.indicator.innerHTML = '<span class="accordion-arrow" aria-hidden="true">▼</span> <span class="indicator-text">Klik om in te klappen</span>';
+        } else {
+          cfg.indicator.innerHTML = '<span class="accordion-arrow" aria-hidden="true">▶</span> <span class="indicator-text">Klik om uit te klappen</span>';
+        }
+      }
+    }
+
+    // Sla toestand op in localStorage
+    if (save) {
+      try {
+        localStorage.setItem(IMPORT_SECTION_KEY, nextActive);
+        if (nextActive !== 'none') {
+          localStorage.setItem(LAST_SECTION_KEY, nextActive);
+        }
+      } catch (err) {
+        console.warn('Kon actieve importsectie niet opslaan in localStorage:', err);
+      }
+    }
+
+    return nextActive;
+  }
+
+  /**
+   * Alias voor compatibiliteit met bestaande code, testen en extensie-koppelingen.
+   */
+  function switchImportTab(targetTab) {
+    if (targetTab === 'doc' || targetTab === 'web' || targetTab === 'bookmarklet') {
+      toggleImportSection(targetTab, true, true);
+    } else {
+      toggleImportSection('none', false, true);
+    }
+  }
+
+  // Event Listeners voor inklapbare accordions
+  if (tabBtnDoc) {
+    tabBtnDoc.addEventListener('click', () => toggleImportSection('doc'));
+  }
+  if (tabBtnWeb) {
+    tabBtnWeb.addEventListener('click', () => toggleImportSection('web'));
+  }
+  if (tabBtnBookmarklet) {
+    tabBtnBookmarklet.addEventListener('click', () => toggleImportSection('bookmarklet'));
+  }
+
+  /**
+   * Laadt toestand bij het openen van de applicatie.
+   * Gedrag: bij openen van de website zijn alle drie de secties ingeklapt (default 'none').
+   * Alleen het tekstvak is zichtbaar.
+   * Indien de gebruiker eerder een sectie heeft geopend en niet heeft ingeklapt,
+   * kan de laatste status worden hersteld.
+   */
+  function loadImportSectionState() {
+    try {
+      const saved = localStorage.getItem(IMPORT_SECTION_KEY);
+      if (saved && saved !== 'none' && SECTION_CONFIG[saved]) {
+        toggleImportSection(saved, true, false);
+      } else {
+        toggleImportSection('none', false, false);
+      }
+    } catch (err) {
+      toggleImportSection('none', false, false);
+    }
+  }
+
+  loadImportSectionState();
 
   // --- 10. Webpagina Processor & Import (Wikipedia, Jeugdjournaal, Nu.nl & Educatieve Websites) ---
   /**
@@ -2020,6 +2131,9 @@ Op een dag vond Pip een geheimzinnig kaartje op de grond. Er stond op: 'De schat
     handleWebImport,
     handleUrlQueryParams,
     switchImportTab,
+    toggleImportSection,
+    getActiveImportSection,
+    loadImportSectionState,
     splitIntoReadingBlocks,
     renderBlocks,
     splitDutchSyllables,
