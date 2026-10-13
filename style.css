@@ -175,20 +175,20 @@ body {
   color: var(--color-text-main);
   background-color: var(--color-bg-page);
   min-height: 100vh;
-  padding: 24px 16px 48px;
+  padding: 16px 0 36px;
   transition: background-color var(--transition-normal), color var(--transition-normal);
   -webkit-font-smoothing: antialiased;
 }
 
-/* Centraal kader voor desktop-first ontwerp: max-width ~1500px, minimale loze zijmarges */
+/* Centraal kader voor desktop-first ontwerp: max-width ~1800px, benut minimaal 90-95% schermbreedte met rustige buitenmarges */
 .app-container {
-  max-width: 1500px;
-  width: 100%;
+  max-width: 1800px;
+  width: 95%;
   margin: 0 auto;
   display: flex;
   flex-direction: column;
   gap: 20px;
-  padding: 16px 24px 48px;
+  padding: 0;
 }
 
 /* --------------------------------------------------------------------------
@@ -254,7 +254,7 @@ body {
 .app-tagline {
   font-size: 0.98rem;
   color: var(--color-text-muted);
-  max-width: 660px;
+  max-width: 850px;
   line-height: 1.45;
   letter-spacing: normal;
   word-spacing: normal;
@@ -352,9 +352,10 @@ body {
    -------------------------------------------------------------------------- */
 .main-layout {
   display: grid;
-  grid-template-columns: 410px minmax(0, 1fr);
+  grid-template-columns: 350px minmax(0, 1fr);
   gap: 24px;
   align-items: start;
+  width: 100%;
   transition: grid-template-columns var(--transition-normal);
 }
 
@@ -366,10 +367,12 @@ body {
   display: none !important;
 }
 
-/* Linkerkolom: Inklapbaar instellingenpaneel */
+/* Linkerkolom: Inklapbaar instellingenpaneel (~350px vaste breedte op desktop) */
 .sidebar-column {
   position: sticky;
   top: 16px;
+  width: 350px;
+  max-width: 350px;
   max-height: calc(100vh - 32px);
   overflow-y: auto;
   overflow-x: hidden;
@@ -391,19 +394,20 @@ body {
   border-radius: 4px;
 }
 
-/* Rechterkolom: Tekstinvoer & Leesblokjes */
+/* Rechterkolom: Tekstinvoer & Leesblokjes (alle resterende ruimte) */
 .content-column {
   display: flex;
   flex-direction: column;
   gap: 24px;
   min-width: 0;
+  width: 100%;
 }
 
 /* --------------------------------------------------------------------------
    Persoonlijk Leesprofiel Paneel
    -------------------------------------------------------------------------- */
 .profile-card {
-  padding: 22px;
+  padding: 18px 16px;
 }
 
 .profile-header {
@@ -411,13 +415,18 @@ body {
   justify-content: space-between;
   align-items: center;
   flex-wrap: wrap;
-  gap: 10px;
-  margin-bottom: 18px;
-  padding-bottom: 12px;
+  gap: 8px;
+  margin-bottom: 16px;
+  padding-bottom: 10px;
   border-bottom: 1px solid var(--color-border);
 }
 
 .profile-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
   display: flex;
   align-items: center;
   gap: 6px;
@@ -639,10 +648,14 @@ body {
 /* Achtergrondkleur Picker */
 .theme-picker {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
   margin-top: 4px;
   min-width: 0;
+}
+
+.theme-option:last-child {
+  grid-column: span 2;
 }
 
 .theme-option {
@@ -1419,11 +1432,17 @@ body.dark-mode.show-syllables:not(.color-syllables) .syl {
 }
 
 /* --------------------------------------------------------------------------
-   Responsiveness (Mobiel & Tablet)
+   Responsiveness (Mobiel & Tablet onder 1200px)
    -------------------------------------------------------------------------- */
-@media (max-width: 1024px) {
+@media (max-width: 1199px) {
+  body {
+    padding: 16px 14px 36px;
+  }
+
   .app-container {
-    padding: 16px 14px 40px;
+    width: 100%;
+    max-width: 100%;
+    padding: 0;
   }
 
   .header-content {
@@ -1459,6 +1478,8 @@ body.dark-mode.show-syllables:not(.color-syllables) .syl {
 
   .sidebar-column {
     position: static;
+    width: 100%;
+    max-width: 100%;
     max-height: none;
     overflow-y: visible;
     padding-right: 0;
