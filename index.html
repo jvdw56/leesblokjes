@@ -287,6 +287,18 @@
             <span class="emoji-icon" aria-hidden="true">🌍</span>
             <span>Webpagina importeren</span>
           </button>
+
+          <button
+            type="button"
+            id="tab-btn-bookmarklet"
+            class="import-tab-btn"
+            role="tab"
+            aria-selected="false"
+            aria-controls="import-panel-bookmarklet"
+          >
+            <span class="emoji-icon" aria-hidden="true">🔖</span>
+            <span>LeesBlokjes op websites</span>
+          </button>
         </div>
 
         <!-- Tab 1: Document Upload Gedeelte (.docx & .pdf) -->
@@ -454,6 +466,89 @@
               </div>
               <button type="button" class="upload-alert-close" id="btn-close-web-alert" aria-label="Sluit deze melding">✕</button>
             </div>
+
+            <!-- Tip voor websites die directe toegang blokkeren -->
+            <div class="web-bookmarklet-tip">
+              <span class="hint-icon" aria-hidden="true">💡</span>
+              <span class="hint-text">
+                Wil je websites zoals Nu.nl direct met 1 klik kunnen openen?
+                <button type="button" id="btn-goto-bookmarklet" class="link-btn">Gebruik de Bookmarklet ➔</button>
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab 3: LeesBlokjes op websites (Bookmarklet generator) -->
+        <div class="import-panel" id="import-panel-bookmarklet" role="tabpanel" aria-labelledby="tab-btn-bookmarklet" style="display: none;">
+          <div class="bookmarklet-card" id="bookmarklet-card">
+            <div class="upload-top-bar">
+              <span class="upload-label-title">
+                <span class="emoji-icon" aria-hidden="true">🌍</span> LeesBlokjes op websites
+              </span>
+              <span class="upload-badge">Voor elke browser &amp; website</span>
+            </div>
+
+            <p class="bookmarklet-intro">
+              Met de <strong>LeesBlokjes Bookmarklet</strong> kun je op iedere website (zoals Nu.nl, Jeugdjournaal, Wikipedia of Schooltv) met één klik de hoofdtekst direct in LeesBlokjes openen.
+            </p>
+
+            <div class="bookmarklet-action-row">
+              <button type="button" id="btn-make-bookmarklet" class="btn-primary btn-make-bookmarklet">
+                <span class="btn-icon" aria-hidden="true">🪄</span>
+                <span class="btn-text">Maak LeesBlokjes Bookmarklet</span>
+              </button>
+            </div>
+
+            <!-- Wordt getoond na klikken op "Maak LeesBlokjes Bookmarklet" -->
+            <div class="bookmarklet-result-card" id="bookmarklet-result" style="display: none;" aria-live="polite">
+              <div class="bookmarklet-instruction-callout">
+                <span class="instruction-arrow" aria-hidden="true">👇</span>
+                <p class="bookmarklet-instruction-text" id="bookmarklet-instruction-text">
+                  Sleep deze knop naar je bladwijzerbalk.
+                </p>
+              </div>
+
+              <div class="bookmarklet-drag-area">
+                <a
+                  href="#"
+                  id="bookmarklet-link"
+                  class="bookmarklet-pill"
+                  title="Sleep deze knop naar je bladwijzerbalk"
+                  draggable="true"
+                  role="button"
+                >
+                  <span class="bm-icon" aria-hidden="true">📖</span>
+                  <span class="bm-title">Lees in LeesBlokjes</span>
+                </a>
+                <button
+                  type="button"
+                  id="btn-copy-bookmarklet"
+                  class="btn-ghost btn-sm btn-copy-bm"
+                  title="Kopieer de javascript-code naar je klembord"
+                >
+                  📋 Kopieer code
+                </button>
+              </div>
+
+              <div class="bookmarklet-steps-guide">
+                <div class="bm-step">
+                  <span class="bm-step-num">1</span>
+                  <span class="bm-step-text"><strong>Sleep de knop</strong> hierboven naar de bladwijzerbalk van Chrome, Edge, Firefox of Safari.</span>
+                </div>
+                <div class="bm-step">
+                  <span class="bm-step-num">2</span>
+                  <span class="bm-step-text"><strong>Open een webpagina</strong> die je graag rustig wilt lezen (bijv. op Nu.nl of Jeugdjournaal).</span>
+                </div>
+                <div class="bm-step">
+                  <span class="bm-step-num">3</span>
+                  <span class="bm-step-text"><strong>Klik op de LeesBlokjes bladwijzer:</strong> het artikel opent meteen hier in rustige blokjes! 🎉</span>
+                </div>
+              </div>
+
+              <p class="bookmarklet-shortcut-hint">
+                💡 <em>Zie je geen bladwijzerbalk? Druk op <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>B</kbd> (Windows/Chromebook) of <kbd>Cmd</kbd> + <kbd>Shift</kbd> + <kbd>B</kbd> (Mac) om hem zichtbaar te maken.</em>
+              </p>
+            </div>
           </div>
         </div>
 
@@ -496,6 +591,27 @@
           <button type="button" id="btn-copy" class="btn-secondary" title="Kopieer de tekst">
             📋 Kopieer tekst
           </button>
+        </div>
+      </div>
+
+      <!-- Leesmodus: Bronvermelding boven de uitvoer (bij Bookmarklet & Webpagina import) -->
+      <div class="source-banner" id="source-banner" style="display: none;" role="region" aria-label="Bronvermelding van de tekst">
+        <div class="source-banner-top">
+          <div class="source-website-badge">
+            <span class="source-badge-icon" aria-hidden="true">🌐</span>
+            <span class="source-badge-text" id="source-website-name">Website</span>
+          </div>
+          <button type="button" class="btn-close-source" id="btn-close-source" title="Bronvermelding verbergen" aria-label="Sluit bronvermelding">✕</button>
+        </div>
+        <div class="source-banner-content">
+          <div class="source-banner-row">
+            <span class="source-label">Bron:</span>
+            <span class="source-value" id="source-title-display">[paginatitel]</span>
+          </div>
+          <div class="source-banner-row">
+            <span class="source-label">URL:</span>
+            <a href="#" class="source-value source-url" id="source-url-display" target="_blank" rel="noopener noreferrer">[website]</a>
+          </div>
         </div>
       </div>
 

@@ -69,11 +69,31 @@ document.addEventListener('DOMContentLoaded', () => {
   const webAlertText = document.getElementById('web-alert-text');
   const btnCloseWebAlert = document.getElementById('btn-close-web-alert');
   const webSuggestions = document.querySelector('.web-suggestions');
+  const btnGotoBookmarklet = document.getElementById('btn-goto-bookmarklet');
+
+  // --- DOM Elementen voor Bookmarklet Generator (LeesBlokjes op websites) ---
+  const tabBtnBookmarklet = document.getElementById('tab-btn-bookmarklet');
+  const importPanelBookmarklet = document.getElementById('import-panel-bookmarklet');
+  const btnMakeBookmarklet = document.getElementById('btn-make-bookmarklet');
+  const bookmarkletResult = document.getElementById('bookmarklet-result');
+  const bookmarkletInstructionText = document.getElementById('bookmarklet-instruction-text');
+  const bookmarkletLink = document.getElementById('bookmarklet-link');
+  const btnCopyBookmarklet = document.getElementById('btn-copy-bookmarklet');
+
+  // --- DOM Elementen voor Leesmodus Bronvermelding ---
+  const sourceBanner = document.getElementById('source-banner');
+  const sourceWebsiteName = document.getElementById('source-website-name');
+  const sourceTitleDisplay = document.getElementById('source-title-display');
+  const sourceUrlDisplay = document.getElementById('source-url-display');
+  const btnCloseSource = document.getElementById('btn-close-source');
 
   // --- Spraaksynthese (Voorlezen) State ---
   let synth = window.speechSynthesis || null;
   let currentUtterance = null;
   let activeSpeechButton = null;
+
+  // --- Toast State ---
+  let toastTimeout = null;
 
   // --- 1. Persoonlijk Leesprofiel Laden, Toepassen & Opslaan ---
   const PROFILE_KEY = 'leesblokjes_leesprofiel';
@@ -696,6 +716,7 @@ Op een dag vond Pip een geheimzinnig kaartje op de grond. Er stond op: 'De schat
     textInput.value = '';
     updateCounter();
     renderBlocks([]);
+    hideSourceInfo();
     setUploadState('idle');
     hideUploadAlert();
     setWebState('idle');
@@ -1076,21 +1097,33 @@ Op een dag vond Pip een geheimzinnig kaartje op de grond. Er stond op: 'De schat
     });
   }
 
-  // --- 9. Import Tabs Wisselen (Document vs Webpagina) ---
+  // --- 9. Import Tabs Wisselen (Document vs Webpagina vs Bookmarklet) ---
   function switchImportTab(targetTab) {
     const isDoc = targetTab === 'doc';
-    if (tabBtnDoc && tabBtnWeb && importPanelDoc && importPanelWeb) {
+    const isWeb = targetTab === 'web';
+    const isBm = targetTab === 'bookmarklet';
+
+    if (tabBtnDoc) {
       tabBtnDoc.classList.toggle('is-active', isDoc);
       tabBtnDoc.setAttribute('aria-selected', String(isDoc));
-      tabBtnWeb.classList.toggle('is-active', !isDoc);
-      tabBtnWeb.setAttribute('aria-selected', String(!isDoc));
-      importPanelDoc.style.display = isDoc ? 'block' : 'none';
-      importPanelWeb.style.display = isDoc ? 'none' : 'block';
     }
+    if (tabBtnWeb) {
+      tabBtnWeb.classList.toggle('is-active', isWeb);
+      tabBtnWeb.setAttribute('aria-selected', String(isWeb));
+    }
+    if (tabBtnBookmarklet) {
+      tabBtnBookmarklet.classList.toggle('is-active', isBm);
+      tabBtnBookmarklet.setAttribute('aria-selected', String(isBm));
+    }
+
+    if (importPanelDoc) importPanelDoc.style.display = isDoc ? 'block' : 'none';
+    if (importPanelWeb) importPanelWeb.style.display = isWeb ? 'block' : 'none';
+    if (importPanelBookmarklet) importPanelBookmarklet.style.display = isBm ? 'block' : 'none';
   }
 
   if (tabBtnDoc) tabBtnDoc.addEventListener('click', () => switchImportTab('doc'));
   if (tabBtnWeb) tabBtnWeb.addEventListener('click', () => switchImportTab('web'));
+  if (tabBtnBookmarklet) tabBtnBookmarklet.addEventListener('click', () => switchImportTab('bookmarklet'));
 
   // --- 10. Webpagina Processor & Import (Wikipedia, Jeugdjournaal, Nu.nl & Educatieve Websites) ---
   /**
@@ -1427,6 +1460,9 @@ Op een dag vond Pip een geheimzinnig kaartje op de grond. Er stond op: 'De schat
       const blocks = splitIntoReadingBlocks(result.text);
       renderBlocks(blocks);
 
+      // Toon bronvermelding boven de uitvoer
+      displaySourceInfo(result.title, result.url);
+
       showToast(`Webpagina succesvol geladen! ${result.wordCount} woorden omgezet naar ${blocks.length} leesblokjes. 🌍✨`);
     } catch (err) {
       console.warn('Web import fout:', err);
@@ -1510,37 +1546,304 @@ Op een dag vond Pip een geheimzinnig kaartje op de grond. Er stond op: 'De schat
     });
   }
 
-  // --- 11. Uitbreidbaarheid voor Toekomstige Browserextensie ---
-  // Luister naar berichten vanuit een browserextensie via window.postMessage
+  // --- 11. Leesmodus: Bronvermelding & Website Herkenning ---
+  function extractWebsiteName(url, title) {
+    if (url) {
+      try {
+        const parsed = new URL(url);
+        const host = parsed.hostname.toLowerCase().replace(/^www\./, '');
+        if (host.includes('wikipedia.org')) return 'Wikipedia';
+        if (host.includes('jeugdjournaal.nl')) return 'NOS Jeugdjournaal';
+        if (host.includes('nu.nl')) return 'Nu.nl';
+        if (host.includes('schooltv.nl')) return 'Schooltv';
+        if (host.includes('wikikids.nl')) return 'WikiKids';
+        if (host.includes('squla.nl')) return 'Squla';
+        return host.charAt(0).toUpperCase() + host.slice(1);
+      } catch (e) {
+        // Ongeldige URL, ga door naar titel
+      }
+    }
+    if (title && title.trim()) {
+      const parts = title.trim().split(/[|\-–—]/);
+      if (parts.length > 1) {
+        return parts[parts.length - 1].trim();
+      }
+      return title.trim();
+    }
+    return 'Webpagina';
+  }
+
+  function displaySourceInfo(title, url) {
+    if (!sourceBanner) return;
+
+    const hasTitle = Boolean(title && title.trim());
+    const hasUrl = Boolean(url && url.trim());
+
+    if (!hasTitle && !hasUrl) {
+      hideSourceInfo();
+      return;
+    }
+
+    const siteName = extractWebsiteName(url, title);
+    if (sourceWebsiteName) {
+      sourceWebsiteName.textContent = siteName;
+    }
+
+    if (sourceTitleDisplay) {
+      sourceTitleDisplay.textContent = hasTitle ? title.trim() : siteName;
+    }
+
+    if (sourceUrlDisplay) {
+      if (hasUrl) {
+        const cleanUrl = url.trim();
+        sourceUrlDisplay.textContent = cleanUrl;
+        sourceUrlDisplay.href = cleanUrl;
+        sourceUrlDisplay.style.display = 'inline';
+      } else {
+        sourceUrlDisplay.textContent = '-';
+        sourceUrlDisplay.removeAttribute('href');
+      }
+    }
+
+    sourceBanner.style.display = 'block';
+  }
+
+  function hideSourceInfo() {
+    if (sourceBanner) {
+      sourceBanner.style.display = 'none';
+    }
+  }
+
+  if (btnCloseSource) {
+    btnCloseSource.addEventListener('click', () => {
+      hideSourceInfo();
+    });
+  }
+
+  // --- 12. Universele Importfunctie (Bookmarklet, Browserextensies & Externe Koppelingen) ---
+  /**
+   * Universele importfunctie voor tekst van externe websites.
+   * Kan direct aangeroepen worden door:
+   * - De LeesBlokjes Bookmarklet (?title=, ?url=, ?text=)
+   * - Chrome extensie
+   * - Edge extensie
+   * - Firefox extensie
+   * 
+   * @param {string|object} textOrOptions Tekst als string of optie-object { text, title, url }
+   * @param {string} [maybeTitle] Optionele paginatitel
+   * @param {string} [maybeUrl] Optionele website-URL
+   */
+  function importText(textOrOptions, maybeTitle, maybeUrl) {
+    let text = '';
+    let title = '';
+    let url = '';
+
+    if (typeof textOrOptions === 'object' && textOrOptions !== null) {
+      text = textOrOptions.text || '';
+      title = textOrOptions.title || '';
+      url = textOrOptions.url || '';
+    } else {
+      text = textOrOptions || '';
+      title = maybeTitle || '';
+      url = maybeUrl || '';
+    }
+
+    // Foutafhandeling: wanneer de pagina geen leesbare tekst bevat
+    if (!text || !text.trim()) {
+      showWebAlert('Geen bruikbare tekst gevonden op deze pagina.');
+      showToast('Geen bruikbare tekst gevonden op deze pagina. ⚠️');
+      return {
+        success: false,
+        error: 'Geen bruikbare tekst gevonden op deze pagina.'
+      };
+    }
+
+    const cleanText = text.trim();
+
+    // 1. Vul automatisch het invoerveld
+    if (textInput) {
+      textInput.value = cleanText;
+      updateCounter();
+    }
+
+    // 2. Genereer direct LeesBlokjes
+    const blocks = splitIntoReadingBlocks(cleanText);
+    renderBlocks(blocks);
+
+    // 3. Toon bronwebsite en metadata in Leesmodus
+    displaySourceInfo(title, url);
+
+    const siteName = extractWebsiteName(url, title);
+    const wordCount = cleanText.split(/\s+/).filter(Boolean).length;
+
+    // Werk de web import status bij
+    setWebState('success', {
+      title: title || siteName,
+      wordCount: wordCount
+    });
+
+    showToast(`Tekst van ${siteName} succesvol geladen! ${wordCount} woorden omgezet naar ${blocks.length} blokjes. ✨`);
+
+    return {
+      success: true,
+      text: cleanText,
+      title,
+      url,
+      websiteName: siteName,
+      wordCount,
+      blocksCount: blocks.length
+    };
+  }
+
+  // --- 13. LeesBlokjes Bookmarklet Generator (LeesBlokjes op websites) ---
+  /**
+   * Genereert een browser bookmarklet met JavaScript code die:
+   * 1. De zichtbare tekst van de huidige pagina verzamelt via document.body.innerText (of geselecteerde tekst).
+   * 2. De paginatitel verzamelt via document.title.
+   * 3. De website URL verzamelt via window.location.
+   * 4. Een nieuw LeesBlokjes venster opent met ?title=, ?url= en ?text=.
+   */
+  function generateBookmarkletCode() {
+    // Basis-URL van deze LeesBlokjes installatie (werkt op GitHub Pages, localhost en file)
+    const baseAppUrl = window.location.href.split('?')[0].split('#')[0];
+
+    const bookmarkletScript = "javascript:(function(){" +
+      "try{" +
+      "var title=document.title||'';" +
+      "var url=window.location.href||'';" +
+      "var sel=(window.getSelection&&window.getSelection().toString().trim())||'';" +
+      "var bodyText=document.body?(document.body.innerText||''):'';" +
+      "var text=sel||bodyText;" +
+      "if(!text||!text.trim()){" +
+      "alert('Geen bruikbare tekst gevonden op deze pagina.');" +
+      "return;" +
+      "}" +
+      "if(text.length>15000){text=text.substring(0,15000);}" +
+      "var base=" + JSON.stringify(baseAppUrl) + ";" +
+      "var sep=base.indexOf('?')===-1?'?':'&';" +
+      "var target=base+sep+'title='+encodeURIComponent(title)+'&url='+encodeURIComponent(url)+'&text='+encodeURIComponent(text);" +
+      "window.open(target,'_blank');" +
+      "}catch(err){" +
+      "alert('Geen bruikbare tekst gevonden op deze pagina.');" +
+      "}" +
+      "})();";
+
+    return {
+      code: bookmarkletScript,
+      appUrl: baseAppUrl
+    };
+  }
+
+  // Bookmarklet Knop Actie: "Maak LeesBlokjes Bookmarklet"
+  if (btnMakeBookmarklet) {
+    btnMakeBookmarklet.addEventListener('click', () => {
+      const { code } = generateBookmarkletCode();
+
+      if (bookmarkletLink) {
+        bookmarkletLink.href = code;
+      }
+
+      if (bookmarkletInstructionText) {
+        bookmarkletInstructionText.textContent = 'Sleep deze knop naar je bladwijzerbalk.';
+      }
+
+      if (bookmarkletResult) {
+        bookmarkletResult.style.display = 'flex';
+        bookmarkletResult.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+
+      showToast('Bookmarklet klaar! Sleep de knop naar je bladwijzerbalk. 🪄');
+    });
+  }
+
+  if (btnCopyBookmarklet) {
+    btnCopyBookmarklet.addEventListener('click', async () => {
+      const { code } = generateBookmarkletCode();
+      try {
+        await navigator.clipboard.writeText(code);
+        showToast('Bookmarklet-code gekopieerd naar klembord! 📋');
+      } catch (err) {
+        showToast('Kon code niet automatisch kopiëren.');
+      }
+    });
+  }
+
+  if (btnGotoBookmarklet) {
+    btnGotoBookmarklet.addEventListener('click', () => {
+      switchImportTab('bookmarklet');
+      if (btnMakeBookmarklet) {
+        btnMakeBookmarklet.click();
+      }
+    });
+  }
+
+  // --- 14. Koppelingen met Browserextensies (postMessage & URL parameters) ---
+  // Luister naar berichten vanuit toekomstige browserextensies via window.postMessage
   window.addEventListener('message', (event) => {
-    if (event.data && (event.data.type === 'LEESBLOKJES_EXT_IMPORT' || event.data.type === 'LEESBLOKJES_IMPORT_WEBPAGE')) {
+    if (event.data && (
+      event.data.type === 'LEESBLOKJES_EXT_IMPORT' ||
+      event.data.type === 'LEESBLOKJES_IMPORT_WEBPAGE' ||
+      event.data.type === 'LEESBLOKJES_IMPORT_TEXT'
+    )) {
       const { text, title, url } = event.data;
       if (text) {
         switchImportTab('web');
         if (webUrlInput && url) webUrlInput.value = url;
-        const words = text.split(/\s+/).filter(Boolean).length;
-        setWebState('success', { title: title || 'Geïmporteerde pagina', wordCount: words });
-        textInput.value = text;
-        updateCounter();
-        const blocks = splitIntoReadingBlocks(text);
-        renderBlocks(blocks);
-        showToast('Webpagina via browserextensie geïmporteerd! 🚀');
+        importText({ text, title, url });
       }
     }
   });
 
-  // Ondersteun URL query parameters (?url=... of ?import_url=...) voor directe koppeling vanuit een extensie
-  try {
-    const urlParams = new URLSearchParams(window.location.search);
-    const queryUrl = urlParams.get('url') || urlParams.get('import_url');
-    if (queryUrl) {
-      switchImportTab('web');
-      if (webUrlInput) webUrlInput.value = queryUrl;
-      handleWebImport(queryUrl);
+  // Ondersteun URL query parameters (?title=... &url=... &text=...) voor Bookmarklet en extensies
+  function handleUrlQueryParams() {
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      let queryText = urlParams.get('text');
+      let queryTitle = urlParams.get('title') || '';
+      let queryUrl = urlParams.get('url') || urlParams.get('import_url') || '';
+
+      // Fallback: controleer ook hash indien parameters via # doorgegeven zijn
+      if (queryText === null && window.location.hash) {
+        const hashParams = new URLSearchParams(window.location.hash.substring(1));
+        if (hashParams.has('text')) {
+          queryText = hashParams.get('text');
+          queryTitle = hashParams.get('title') || queryTitle;
+          queryUrl = hashParams.get('url') || queryUrl;
+        }
+      }
+
+      // 1. Text parameter aanwezig (van Bookmarklet of Browserextensie)
+      if (queryText !== null) {
+        switchImportTab('web');
+        if (webUrlInput && queryUrl) webUrlInput.value = queryUrl;
+
+        if (!queryText.trim()) {
+          showWebAlert('Geen bruikbare tekst gevonden op deze pagina.');
+          showToast('Geen bruikbare tekst gevonden op deze pagina. ⚠️');
+          return;
+        }
+
+        importText({
+          text: queryText,
+          title: queryTitle,
+          url: queryUrl
+        });
+        return;
+      }
+
+      // 2. Alleen URL parameter aanwezig (directe webpagina import)
+      if (queryUrl) {
+        switchImportTab('web');
+        if (webUrlInput) webUrlInput.value = queryUrl;
+        handleWebImport(queryUrl);
+      }
+    } catch (paramErr) {
+      console.warn('Fout bij het uitlezen van URL parameters:', paramErr);
     }
-  } catch (paramErr) {
-    // Negeer fouten bij het uitlezen van query parameters
   }
+
+  // Verwerk eventuele URL parameters bij het openen van de pagina
+  handleUrlQueryParams();
 
   // --- 12. Kopiëren naar Klembord ---
   btnCopy.addEventListener('click', async () => {
@@ -1684,7 +1987,6 @@ Op een dag vond Pip een geheimzinnig kaartje op de grond. Er stond op: 'De schat
   }
 
   // --- 10. Toast Meldingen ---
-  let toastTimeout = null;
   function showToast(message) {
     let toast = document.getElementById('toast-notice');
     if (!toast) {
@@ -1706,12 +2008,17 @@ Op een dag vond Pip een geheimzinnig kaartje op de grond. Er stond op: 'De schat
   // Initialiseer woordenteller bij eventuele reeds aanwezige tekst
   updateCounter();
 
-  // Exporteer publieke API voor uitbreidingen (bijv. toekomstige OCR module en browserextensie) en tests
+  // Exporteer publieke API voor extensies (Chrome, Edge, Firefox), bookmarklet en tests
   window.LeesBlokjes = {
     DocumentProcessor,
     WebpageProcessor,
+    importText,
+    generateBookmarkletCode,
+    displaySourceInfo,
+    hideSourceInfo,
     handleFileUpload,
     handleWebImport,
+    handleUrlQueryParams,
     switchImportTab,
     splitIntoReadingBlocks,
     renderBlocks,
