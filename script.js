@@ -29,6 +29,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const valFontSize = document.getElementById('val-font-size');
   const profileLineHeight = document.getElementById('profile-line-height');
   const valLineHeight = document.getElementById('val-line-height');
+  const profileWordSpacing = document.getElementById('profile-word-spacing');
+  const valWordSpacing = document.getElementById('val-word-spacing');
   const themeRadios = document.querySelectorAll('input[name="profile-theme"]');
   const btnResetProfile = document.getElementById('btn-reset-profile');
 
@@ -36,9 +38,13 @@ document.addEventListener('DOMContentLoaded', () => {
   const toggleShowSyllables = document.getElementById('toggle-show-syllables');
   const toggleColorSyllables = document.getElementById('toggle-color-syllables');
   const readingModeButtons = document.querySelectorAll('[data-reading-mode]');
+  const readingLayoutButtons = document.querySelectorAll('[data-reading-layout]');
   const syllableOptions = document.getElementById('syllable-options');
   const soundModeInfo = document.getElementById('sound-mode-info');
   let readingMode = 'syllables';
+  let readingLayout = 'blocks';
+  let currentBlocks = [];
+  let currentText = '';
 
   // --- DOM Elementen voor Document Upload ---
   const fileInput = document.getElementById('file-input');
@@ -97,6 +103,7 @@ document.addEventListener('DOMContentLoaded', () => {
   let synth = window.speechSynthesis || null;
   let currentUtterance = null;
   let activeSpeechButton = null;
+  let speechRun = 0;
 
   // --- Toast State ---
   let toastTimeout = null;
@@ -117,10 +124,12 @@ document.addEventListener('DOMContentLoaded', () => {
     font: 'Lexend',
     fontSize: 20,
     lineHeight: 1.8,
+    wordSpacing: 1,
     theme: 'creme',
     showSyllables: true,
     colorSyllables: true,
-    readingMode: 'syllables'
+    readingMode: 'syllables',
+    readingLayout: 'blocks'
   };
 
   function applyProfile(profile, updateInputs = true) {
@@ -153,6 +162,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (valLineHeight) {
       valLineHeight.textContent = `${formattedLineHeight}×`;
     }
+
+    applyWordSpacing(profile.wordSpacing, updateInputs);
+    setReadingLayout(profile.readingLayout, false);
 
     // 4. Achtergrondkleur
     const validThemes = ['creme', 'blauw', 'groen', 'geel', 'donker'];
@@ -188,12 +200,27 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     const rawText = textInput.value.trim();
     if (rawText) {
-      renderBlocks(splitIntoReadingBlocks(rawText), false);
-    } else {
-      outputArea.querySelectorAll('.lees-blokje').forEach(article => {
-        article.querySelector('.blokje-content').innerHTML = formatReadingText(article.dataset.originalText);
-      });
+      renderBlocks(splitIntoReadingBlocks(rawText), false, rawText);
+    } else if (currentBlocks.length) {
+      renderBlocks(currentBlocks, false, currentText);
     }
+  }
+
+  function applyWordSpacing(value, updateInputs = true) {
+    const parsed = Number(value);
+    const spacing = Number.isFinite(parsed) ? Math.min(3, Math.max(0.8, parsed)) : 1;
+    const formatted = spacing.toFixed(1);
+    document.documentElement.style.setProperty('--user-word-spacing', formatted);
+    if (updateInputs) profileWordSpacing.value = formatted;
+    valWordSpacing.textContent = `${formatted}×`;
+  }
+
+  function setReadingLayout(layout, refresh = true) {
+    readingLayout = layout === 'continuous' ? 'continuous' : 'blocks';
+    readingLayoutButtons.forEach(button => {
+      button.setAttribute('aria-pressed', String(button.dataset.readingLayout === readingLayout));
+    });
+    if (refresh && currentBlocks.length) renderBlocks(currentBlocks, false, currentText);
   }
 
   function getActiveProfileFromUI() {
@@ -202,10 +229,12 @@ document.addEventListener('DOMContentLoaded', () => {
       font: profileFont ? profileFont.value : 'Lexend',
       fontSize: profileFontSize ? Number(profileFontSize.value) : 20,
       lineHeight: profileLineHeight ? Number(profileLineHeight.value) : 1.8,
+      wordSpacing: Number(profileWordSpacing.value),
       theme: selectedTheme,
       showSyllables: Boolean(toggleShowSyllables?.checked),
       colorSyllables: Boolean(toggleColorSyllables?.checked),
-      readingMode
+      readingMode,
+      readingLayout
     };
   }
 
@@ -279,6 +308,18 @@ document.addEventListener('DOMContentLoaded', () => {
       saveProfile();
     });
   }
+
+  profileWordSpacing.addEventListener('input', () => {
+    applyWordSpacing(profileWordSpacing.value, false);
+    saveProfile();
+  });
+
+  readingLayoutButtons.forEach(button => {
+    button.addEventListener('click', () => {
+      setReadingLayout(button.dataset.readingLayout);
+      saveProfile();
+    });
+  });
 
   themeRadios.forEach(radio => {
     radio.addEventListener('change', () => {
@@ -661,8 +702,10 @@ document.addEventListener('DOMContentLoaded', () => {
   loadProfile();
 
   // --- 4. Blokjes Tonen in de UI ---
-  function renderBlocks(blocks, scrollToOutput = true) {
+  function renderBlocks(blocks, scrollToOutput = true, originalText = (blocks || []).join('\n\n')) {
     stopSpeaking();
+    currentBlocks = blocks ? [...blocks] : [];
+    currentText = originalText;
     outputArea.innerHTML = '';
     outputArea.classList.remove('has-focus');
 
@@ -674,12 +717,27 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     outputActions.style.display = 'flex';
-    focusTip.style.display = 'block';
+    focusTip.style.display = readingLayout === 'blocks' ? 'block' : 'none';
+
+    if (readingLayout === 'continuous') {
+      const reading = document.createElement('div');
+      reading.className = 'continuous-reading reading-unit';
+      reading.setAttribute('role', 'region');
+      reading.setAttribute('aria-label', 'Doorlopende leestekst');
+      reading.dataset.originalText = originalText;
+      const content = document.createElement('div');
+      content.className = 'blokje-content';
+      content.innerHTML = formatReadingText(originalText);
+      reading.appendChild(content);
+      outputArea.appendChild(reading);
+      if (scrollToOutput) outputArea.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      return;
+    }
 
     blocks.forEach((text, index) => {
       const blockIndex = index + 1;
       const article = document.createElement('article');
-      article.className = 'lees-blokje';
+      article.className = 'lees-blokje reading-unit';
       article.setAttribute('tabindex', '0');
       article.setAttribute('role', 'region');
       article.setAttribute('aria-label', `Leesblokje ${blockIndex} van ${blocks.length}`);
@@ -785,8 +843,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     const blocks = splitIntoReadingBlocks(rawText);
-    renderBlocks(blocks);
-    showToast(`Gelukt! We hebben er ${blocks.length} rustige blokjes van gemaakt. 🌟`);
+    renderBlocks(blocks, true, rawText);
+    showToast(readingLayout === 'continuous'
+      ? 'Gelukt! Je doorlopende leestekst staat klaar. 🌟'
+      : `Gelukt! We hebben er ${blocks.length} rustige blokjes van gemaakt. 🌟`);
   });
 
   // --- 6. Voorbeeldtekst Invoegen ---
@@ -800,7 +860,7 @@ Op een dag vond Pip een geheimzinnig kaartje op de grond. Er stond op: 'De schat
     textInput.value = SAMPLE_TEXT;
     updateCounter();
     const blocks = splitIntoReadingBlocks(SAMPLE_TEXT);
-    renderBlocks(blocks);
+    renderBlocks(blocks, true, SAMPLE_TEXT);
     showToast('Voorbeeldverhaal geladen! Veel leesplezier! 🚀');
   });
 
@@ -1117,9 +1177,10 @@ Op een dag vond Pip een geheimzinnig kaartje op de grond. Er stond op: 'De schat
 
       // Voer direct de bestaande LeesBlokjes verwerking uit
       const blocks = splitIntoReadingBlocks(result.text);
-      renderBlocks(blocks);
+      renderBlocks(blocks, true, result.text);
 
-      showToast(`Document succesvol geladen! ${result.wordCount} woorden omgezet naar ${blocks.length} leesblokjes. 📄✨`);
+      const outputDescription = readingLayout === 'continuous' ? 'doorlopende tekst' : `${blocks.length} leesblokjes`;
+      showToast(`Document succesvol geladen! ${result.wordCount} woorden omgezet naar ${outputDescription}. 📄✨`);
     } catch (err) {
       console.error('Fout bij document upload:', err);
       setUploadState('idle');
@@ -1626,12 +1687,13 @@ Op een dag vond Pip een geheimzinnig kaartje op de grond. Er stond op: 'De schat
 
       // Pas direct de bestaande LeesBlokjes verwerking toe
       const blocks = splitIntoReadingBlocks(result.text);
-      renderBlocks(blocks);
+      renderBlocks(blocks, true, result.text);
 
       // Toon bronvermelding boven de uitvoer
       displaySourceInfo(result.title, result.url);
 
-      showToast(`Webpagina succesvol geladen! ${result.wordCount} woorden omgezet naar ${blocks.length} leesblokjes. 🌍✨`);
+      const outputDescription = readingLayout === 'continuous' ? 'doorlopende tekst' : `${blocks.length} leesblokjes`;
+      showToast(`Webpagina succesvol geladen! ${result.wordCount} woorden omgezet naar ${outputDescription}. 🌍✨`);
     } catch (err) {
       console.warn('Web import fout:', err);
       setWebState('idle');
@@ -1836,7 +1898,7 @@ Op een dag vond Pip een geheimzinnig kaartje op de grond. Er stond op: 'De schat
 
     // 2. Genereer direct LeesBlokjes
     const blocks = splitIntoReadingBlocks(cleanText);
-    renderBlocks(blocks);
+    renderBlocks(blocks, true, cleanText);
 
     // 3. Toon bronwebsite en metadata in Leesmodus
     displaySourceInfo(title, url);
@@ -1850,7 +1912,8 @@ Op een dag vond Pip een geheimzinnig kaartje op de grond. Er stond op: 'De schat
       wordCount: wordCount
     });
 
-    showToast(`Tekst van ${siteName} succesvol geladen! ${wordCount} woorden omgezet naar ${blocks.length} blokjes. ✨`);
+    const outputDescription = readingLayout === 'continuous' ? 'doorlopende tekst' : `${blocks.length} blokjes`;
+    showToast(`Tekst van ${siteName} succesvol geladen! ${wordCount} woorden omgezet naar ${outputDescription}. ✨`);
 
     return {
       success: true,
@@ -2015,10 +2078,10 @@ Op een dag vond Pip een geheimzinnig kaartje op de grond. Er stond op: 'De schat
 
   // --- 12. Kopiëren naar Klembord ---
   btnCopy.addEventListener('click', async () => {
-    const blockElements = Array.from(outputArea.querySelectorAll('.lees-blokje'));
+    const blockElements = Array.from(outputArea.querySelectorAll('.reading-unit'));
     if (blockElements.length === 0) return;
 
-    const formattedText = blockElements
+    const formattedText = readingLayout === 'continuous' ? currentText : blockElements
       .map((el, i) => `[Blokje ${i + 1}]\n${(el.dataset.originalText || el.querySelector('.blokje-content').textContent).trim()}`)
       .join('\n\n');
 
@@ -2040,7 +2103,8 @@ Op een dag vond Pip een geheimzinnig kaartje op de grond. Er stond op: 'De schat
   }
 
   function stopSpeaking() {
-    if (synth && synth.speaking) {
+    speechRun++;
+    if (synth && (synth.speaking || synth.pending)) {
       synth.cancel();
     }
     if (activeSpeechButton) {
@@ -2067,6 +2131,7 @@ Op een dag vond Pip een geheimzinnig kaartje op de grond. Er stond op: 'De schat
     }
 
     stopSpeaking();
+    const run = speechRun;
 
     currentUtterance = new SpeechSynthesisUtterance(text);
     const nlVoice = getDutchVoice();
@@ -2085,11 +2150,11 @@ Op een dag vond Pip een geheimzinnig kaartje op de grond. Er stond op: 'De schat
     outputArea.classList.add('has-focus');
 
     currentUtterance.onend = () => {
-      stopSpeaking();
+      if (run === speechRun) stopSpeaking();
     };
 
     currentUtterance.onerror = () => {
-      stopSpeaking();
+      if (run === speechRun) stopSpeaking();
     };
 
     synth.speak(currentUtterance);
@@ -2101,16 +2166,18 @@ Op een dag vond Pip een geheimzinnig kaartje op de grond. Er stond op: 'De schat
       return;
     }
 
-    const blockElements = Array.from(outputArea.querySelectorAll('.lees-blokje'));
+    const blockElements = Array.from(outputArea.querySelectorAll('.reading-unit'));
     if (blockElements.length === 0) return;
 
     stopSpeaking();
+    const run = speechRun;
     btnReadAll.style.display = 'none';
     btnStopAudio.style.display = 'inline-flex';
 
     let currentIndex = 0;
 
     function speakNext() {
+      if (run !== speechRun) return;
       if (currentIndex >= blockElements.length) {
         stopSpeaking();
         return;
@@ -2132,12 +2199,13 @@ Op een dag vond Pip een geheimzinnig kaartje op de grond. Er stond op: 'De schat
       currentUtterance.rate = 0.9;
 
       currentUtterance.onend = () => {
+        if (run !== speechRun) return;
         currentIndex++;
         speakNext();
       };
 
       currentUtterance.onerror = () => {
-        stopSpeaking();
+        if (run === speechRun) stopSpeaking();
       };
 
       synth.speak(currentUtterance);

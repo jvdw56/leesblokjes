@@ -13,7 +13,8 @@
       const frame = document.getElementById('app');
       const results = document.getElementById('results');
       const keys = ['leesblokjes_leesprofiel', 'leesblokjes_instellingen',
-        'leesblokjes_actieve_import_sectie', 'leesblokjes_laatste_geopende_sectie'];
+        'leesblokjes_actieve_import_sectie', 'leesblokjes_laatste_geopende_sectie',
+        'leesblokjes_paneel_ingeklapt'];
       const saved = keys.map(key => localStorage.getItem(key));
       const checks = [];
       function assert(condition, message) {
@@ -265,6 +266,193 @@
         } finally {
           app.LeesBlokjes.WebpageProcessor.fetchAndExtract = originalFetch;
         }
+        doc = app.document;
+        const chooseLayout = layout => doc.querySelector(`[data-reading-layout="${layout}"]`).click();
+        const setSpacing = value => {
+          doc.getElementById('profile-word-spacing').value = value;
+          doc.getElementById('profile-word-spacing').dispatchEvent(new app.Event('input'));
+        };
+        assert(doc.getElementById('profile-line-height').closest('.profile-item').nextElementSibling
+          .contains(doc.getElementById('profile-word-spacing')),
+          'Woordafstand staat direct onder Regelafstand');
+        assert(!doc.querySelector('.profile-grid .profile-label-hint'),
+          'Verklarende teksten zijn verwijderd uit de compacte instellingen');
+        const badge = app.getComputedStyle(doc.getElementById('val-word-spacing'));
+        const lineBadge = app.getComputedStyle(doc.getElementById('val-line-height'));
+        assert(badge.backgroundColor === lineBadge.backgroundColor &&
+          badge.fontSize === lineBadge.fontSize && badge.borderRadius === lineBadge.borderRadius,
+          'Woordafstand heeft dezelfde blauwe badge en typografie als Regelafstand');
+        assert(doc.querySelector('[data-reading-layout="blocks"]').getAttribute('aria-pressed') === 'true',
+          'Alineablokken blijft de standaardweergave');
+        for (const layout of ['blocks', 'continuous']) {
+          chooseLayout(layout);
+          for (const mode of ['normal', 'syllables', 'sounds']) {
+            doc.getElementById('text-input').value = mode === 'sounds' ? 'school school' : 'Nederland Nederland';
+            choose(mode === 'sounds' ? 'sounds' : 'syllables');
+            const toggle = doc.getElementById('toggle-show-syllables');
+            toggle.checked = mode !== 'normal';
+            toggle.dispatchEvent(new app.Event('change'));
+            setSpacing('0.8');
+            const output = content();
+            const firstWord = output.querySelector(mode === 'sounds' ? '.sound-word' : '.syl-word');
+            const secondWord = firstWord.nextElementSibling;
+            const wordGap = () => {
+              const first = doc.createRange();
+              const second = doc.createRange();
+              first.selectNodeContents(firstWord);
+              second.selectNodeContents(secondWord);
+              return second.getBoundingClientRect().left - first.getBoundingClientRect().right;
+            };
+            const narrow = wordGap();
+            const groupWidth = firstWord.firstElementChild.getBoundingClientRect().width;
+            setSpacing('3.0');
+            const wide = wordGap();
+            assert(wide - narrow > 10, `Woordafstand vergroot de gemeten ruimte direct in ${mode}/${layout}`);
+            assert(content() === output, `Woordafstand verwerkt de tekst niet opnieuw in ${mode}/${layout}`);
+            assert(firstWord.firstElementChild.getBoundingClientRect().width === groupWidth,
+              `Woordafstand verandert de bouwstenen niet in ${mode}/${layout}`);
+            assert(doc.getElementById('val-word-spacing').textContent === '3.0×',
+              `Woordafstandbadge volgt de slider in ${mode}/${layout}`);
+          }
+        }
+        chooseLayout('blocks');
+        setSpacing('1.0');
+        const flowingText = 'school schrijfboek nieuws leeuw vriendelijk ruimteschip\n' +
+          'aai ooi oei eeuw ieuw uw.\n\nTweede alinea. Nog een zin. Derde zin. Vierde zin. Vijfde zin.';
+        doc.getElementById('text-input').value = flowingText;
+        choose('sounds');
+        const blockHtml = doc.getElementById('output-area').innerHTML;
+        const blockTexts = Array.from(doc.querySelectorAll('.lees-blokje')).map(block => block.dataset.originalText);
+        assert(blockTexts.length > 1, 'Controle-invoer bevat meerdere alineablokken');
+        // Een weergavewissel mag niet de nog niet verwerkte invoer gebruiken.
+        doc.getElementById('text-input').value = 'Onverwerkte wijziging';
+        chooseLayout('continuous');
+        assert(!doc.querySelector('.lees-blokje') && !doc.querySelector('.blokje-badge') &&
+          doc.querySelectorAll('.continuous-reading').length === 1,
+          'Doorlopende tekst bevat geen genummerde blokkaarten');
+        assert(content().textContent === flowingText &&
+          app.getComputedStyle(content()).whiteSpace === 'pre-wrap',
+          'Doorlopende tekst behoudt de volledige originele tekst en alineagrenzen');
+        assert(doc.querySelectorAll('[data-reading-layout][aria-pressed="true"]').length === 1 &&
+          doc.getElementById('focus-tip').style.display === 'none',
+          'Tekstweergaven zijn exclusief en de bloktip is verborgen bij doorlopende tekst');
+        const expectedColors = {
+          blue: 'rgb(73, 181, 229)', green: 'rgb(145, 184, 76)', yellow: 'rgb(244, 221, 39)',
+          orange: 'rgb(239, 117, 69)', white: 'rgb(255, 255, 255)'
+        };
+        for (const [color, expected] of Object.entries(expectedColors)) {
+          const group = content().querySelector(`.sound-${color}`);
+          assert(group && app.getComputedStyle(group).backgroundColor === expected,
+            `Exacte zichtbare leeskaartkleur in doorlopende tekst: ${color}`);
+        }
+        for (const word of ['aai', 'ooi', 'oei']) {
+          const group = Array.from(content().querySelectorAll('.sound-underline'))
+            .find(group => group.textContent === word);
+          const style = app.getComputedStyle(group, '::after');
+          assert(style.content !== 'none' && parseFloat(style.borderTopWidth) > 0 &&
+            parseFloat(style.borderBottomWidth) > 0,
+            `Dubbele onderstreping zichtbaar in doorlopende tekst: ${word}`);
+        }
+        for (const word of ['eeuw', 'ieuw', 'uw']) {
+          const group = Array.from(content().querySelectorAll('.sound-dots'))
+            .find(group => group.textContent === word);
+          assert(group && group.querySelectorAll('.sound-letter').length === word.length &&
+            Array.from(group.querySelectorAll('.sound-letter')).every(letter =>
+              app.getComputedStyle(letter, '::after').content !== 'none'),
+            `Punt onder elke letter in doorlopende tekst: ${word}`);
+        }
+        const clipboard = app.navigator.clipboard;
+        const writeDescriptor = Object.getOwnPropertyDescriptor(clipboard, 'writeText');
+        let copied = '';
+        Object.defineProperty(clipboard, 'writeText', { configurable: true, value: async text => { copied = text; } });
+        try {
+          doc.getElementById('btn-copy').click();
+          await new Promise(resolve => app.setTimeout(resolve, 0));
+          assert(copied === flowingText, "Kopieren van doorlopende tekst behoudt alinea's zonder bloknummers");
+          chooseLayout('blocks');
+          assert(doc.getElementById('output-area').innerHTML === blockHtml,
+            'Terugwisselen herstelt exact de bestaande blokken zonder herverwerking');
+          doc.getElementById('btn-copy').click();
+          await new Promise(resolve => app.setTimeout(resolve, 0));
+          assert(copied === blockTexts.map((text, i) => `[Blokje ${i + 1}]\n${text}`).join('\n\n'),
+            'Kopieren van alineablokken behoudt bestaande bloknummers');
+        } finally {
+          if (writeDescriptor) Object.defineProperty(clipboard, 'writeText', writeDescriptor);
+          else delete clipboard.writeText;
+        }
+        const speech = app.speechSynthesis;
+        const speechKeys = ['speak', 'cancel', 'getVoices', 'speaking'];
+        const speechDescriptors = speechKeys.map(key => Object.getOwnPropertyDescriptor(speech, key));
+        let speaking = false;
+        let cancelled = 0;
+        const spoken = [];
+        Object.defineProperties(speech, {
+          speak: { configurable: true, value: utterance => { speaking = true; spoken.push(utterance); } },
+          cancel: { configurable: true, value: () => { speaking = false; cancelled++; } },
+          getVoices: { configurable: true, value: () => [] },
+          speaking: { configurable: true, get: () => speaking }
+        });
+        try {
+          chooseLayout('continuous');
+          doc.getElementById('btn-read-all').click();
+          assert(spoken.length === 1 && spoken[0].text === flowingText &&
+            doc.getElementById('btn-stop-audio').style.display === 'inline-flex',
+            'Alles voorlezen leest de volledige doorlopende tekst zonder klankscheidingen');
+          doc.getElementById('btn-stop-audio').click();
+          assert(cancelled === 1 && !speaking &&
+            doc.getElementById('btn-read-all').style.display === 'inline-flex',
+            'Stoppen werkt in doorlopende tekst');
+          doc.getElementById('btn-read-all').click();
+          const interrupted = spoken[spoken.length - 1];
+          chooseLayout('blocks');
+          assert(cancelled === 2 && !speaking, 'Weergavewissel stopt lopende audio');
+          doc.querySelector('.btn-speak-block').click();
+          assert(spoken[spoken.length - 1].text === blockTexts[0],
+            'Los blok voorlezen blijft werken na terugwisselen');
+          interrupted.onend();
+          assert(speaking && cancelled === 2,
+            'Vertraagd audio-einde van vorige weergave onderbreekt nieuwe audio niet');
+          doc.getElementById('btn-stop-audio').click();
+        } finally {
+          speechKeys.forEach((key, index) => {
+            if (speechDescriptors[index]) Object.defineProperty(speech, key, speechDescriptors[index]);
+            else delete speech[key];
+          });
+        }
+        doc.getElementById('text-input').value = flowingText;
+        chooseLayout('continuous');
+        choose('syllables');
+        assert(doc.querySelector('.continuous-reading .syl') && !content().querySelector('.sound'),
+          'Lettergrepen werken ook in doorlopende tekst');
+        choose('sounds');
+        setSpacing('2.4');
+        const stored = JSON.parse(localStorage.getItem(keys[0]));
+        assert(stored.wordSpacing === 2.4 && stored.readingLayout === 'continuous',
+          'Woordafstand en tekstweergave worden opgeslagen in localStorage');
+        app = await loadApp();
+        doc = app.document;
+        assert(doc.getElementById('profile-word-spacing').value === '2.4' &&
+          doc.getElementById('val-word-spacing').textContent === '2.4×' &&
+          doc.querySelector('[data-reading-layout="continuous"]').getAttribute('aria-pressed') === 'true',
+          'Woordafstand en doorlopende tekst worden hersteld na herladen');
+        app.LeesBlokjes.renderBlocks(['school', 'nieuws']);
+        assert(!doc.querySelector('.lees-blokje') && content().textContent === 'school\n\nnieuws',
+          'Nieuwe uitvoer gebruikt de opgeslagen doorlopende tekstweergave');
+        doc.getElementById('btn-reset-profile').click();
+        assert(Number(doc.getElementById('profile-word-spacing').value) === 1 &&
+          doc.querySelectorAll('.lees-blokje').length === 2 &&
+          doc.querySelector('[data-reading-layout="blocks"]').getAttribute('aria-pressed') === 'true',
+          'Profielherstel reset woordafstand en herstelt alineablokken direct');
+        app.LeesBlokjes.applyProfile({ ...stored, wordSpacing: 99 });
+        assert(Number(doc.getElementById('profile-word-spacing').value) === 3, 'Woordafstand is begrensd op 3.0');
+        app.LeesBlokjes.applyProfile({ ...stored, wordSpacing: 0.1 });
+        assert(doc.getElementById('profile-word-spacing').value === '0.8', 'Woordafstand is begrensd op 0.8');
+        localStorage.setItem(keys[0], JSON.stringify({ readingMode: 'sounds', showSyllables: true, colorSyllables: true }));
+        app = await loadApp();
+        doc = app.document;
+        assert(Number(doc.getElementById('profile-word-spacing').value) === 1 &&
+          doc.querySelector('[data-reading-layout="blocks"]').getAttribute('aria-pressed') === 'true',
+          'Bestaande profielen krijgen standaard woordafstand en alineablokken');
         app.document.getElementById('text-input').value = requiredExamples.map(([word]) => word).join(' ');
         app.document.querySelector('[data-reading-mode="sounds"]').click();
         app.document.getElementById('tab-btn-text').click();
@@ -273,10 +461,25 @@
           await new Promise(resolve => app.requestAnimationFrame(resolve));
           const output = app.document.querySelector('.blokje-content');
           assert(app.document.documentElement.scrollWidth <= app.innerWidth &&
+            Array.from(doc.querySelectorAll('.import-source-button'))
+              .every(button => button.scrollWidth <= button.clientWidth) &&
             Array.from(output.querySelectorAll('.sound-word')).every(word => word.scrollWidth <= output.clientWidth + 1),
             `Klankbouwstenen en navigatie passen zonder horizontale overflow op ${width}px`);
         }
+        frame.style.width = '1366px';
+        frame.style.height = '768px';
+        await new Promise(resolve => app.requestAnimationFrame(resolve));
+        const sidebarRect = doc.querySelector('.sidebar-column').getBoundingClientRect();
+        const contentRect = doc.querySelector('.content-column').getBoundingClientRect();
+        assert(contentRect.left >= sidebarRect.right && doc.documentElement.scrollWidth <= app.innerWidth,
+          'Laptopweergave houdt de compacte instellingen naast de leestekst zonder overflow');
+        const inputRect = doc.querySelector('.input-card').getBoundingClientRect();
+        const outputRect = doc.querySelector('.output-card').getBoundingClientRect();
+        const headerRect = doc.querySelector('.app-header').getBoundingClientRect();
+        assert(headerRect.height + inputRect.height + (outputRect.top - inputRect.bottom) < app.innerHeight - 100,
+          'Op een laptop van 1366x768 blijft uitvoerruimte zichtbaar onder de compacte invoer');
         frame.style.width = '100%';
+        frame.style.height = '800px';
         results.textContent = `${checks.join('\n')}\n\n${checks.length} tests geslaagd.`;
         results.dataset.status = 'passed';
       } catch (error) {

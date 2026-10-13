@@ -7,6 +7,7 @@
   --user-font-family: 'Lexend', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --user-font-size: 20px;
   --user-line-height: 1.8;
+  --user-word-spacing: 1;
 
   /* Font basissen */
   --font-lexend: 'Lexend', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -352,8 +353,8 @@ body {
    -------------------------------------------------------------------------- */
 .main-layout {
   display: grid;
-  grid-template-columns: 350px minmax(0, 1fr);
-  gap: 24px;
+  grid-template-columns: 320px minmax(0, 1fr);
+  gap: 18px;
   align-items: start;
   width: 100%;
   transition: grid-template-columns var(--transition-normal);
@@ -367,12 +368,12 @@ body {
   display: none !important;
 }
 
-/* Linkerkolom: Inklapbaar instellingenpaneel (~350px vaste breedte op desktop) */
+/* Linkerkolom: compact instellingenpaneel */
 .sidebar-column {
   position: sticky;
   top: 16px;
-  width: 350px;
-  max-width: 350px;
+  width: 320px;
+  max-width: 320px;
   max-height: calc(100vh - 32px);
   overflow-y: auto;
   overflow-x: hidden;
@@ -398,7 +399,7 @@ body {
 .content-column {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 18px;
   min-width: 0;
   width: 100%;
 }
@@ -407,7 +408,7 @@ body {
    Persoonlijk Leesprofiel Paneel
    -------------------------------------------------------------------------- */
 .profile-card {
-  padding: 18px 16px;
+  padding: 14px 12px;
 }
 
 .profile-header {
@@ -416,8 +417,8 @@ body {
   align-items: center;
   flex-wrap: wrap;
   gap: 8px;
-  margin-bottom: 16px;
-  padding-bottom: 10px;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
   border-bottom: 1px solid var(--color-border);
 }
 
@@ -426,6 +427,16 @@ body {
   align-items: center;
   gap: 6px;
   flex-wrap: wrap;
+}
+
+.profile-header .options-heading {
+  font-size: 1.05rem;
+  gap: 6px;
+}
+
+.profile-header-actions .btn-ghost {
+  font-size: 0.75rem;
+  padding: 6px;
 }
   display: flex;
   align-items: center;
@@ -451,7 +462,7 @@ body {
 .profile-grid {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 6px;
   min-width: 0;
 }
 
@@ -459,11 +470,11 @@ body {
   background-color: var(--blokje-bg);
   border: 1px solid var(--blokje-border);
   border-radius: var(--radius-md);
-  padding: 14px 16px;
+  padding: 7px 10px;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  gap: 10px;
+  gap: 7px;
   min-width: 0;
   max-width: 100%;
   transition: border-color var(--transition-fast), background-color var(--transition-normal);
@@ -497,7 +508,8 @@ body {
 
 .profile-label-title {
   font-weight: 700;
-  font-size: 1rem;
+  font-size: 0.94rem;
+  line-height: 1.3;
   color: var(--color-text-main);
   letter-spacing: normal;
   word-spacing: normal;
@@ -522,8 +534,8 @@ body {
 .profile-select {
   width: 100%;
   max-width: 100%;
-  padding: 12px 16px;
-  font-size: 1.02rem;
+  padding: 8px 10px;
+  font-size: 0.94rem;
   font-family: inherit;
   color: var(--color-text-main);
   background-color: var(--color-card-bg);
@@ -556,6 +568,7 @@ body {
   letter-spacing: normal;
   word-spacing: normal;
   font-variant-numeric: tabular-nums;
+  line-height: 1.2;
   min-width: 58px;
   text-align: center;
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.12);
@@ -565,6 +578,7 @@ body {
   display: flex;
   align-items: center;
   gap: 12px;
+  line-height: 1.2;
 }
 
 .slider-end-label {
@@ -649,7 +663,7 @@ body {
 .theme-picker {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 8px;
+  gap: 6px;
   margin-top: 4px;
   min-width: 0;
 }
@@ -663,7 +677,7 @@ body {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 10px;
+  padding: 6px 8px;
   background-color: var(--color-card-bg);
   border: 2px solid var(--blokje-border);
   border-radius: var(--radius-md);
@@ -739,6 +753,7 @@ body.dark-mode .theme-option:has(input:checked) {
   display: flex;
   flex-direction: column;
   gap: 1px;
+  line-height: 1.25;
   min-width: 0;
   overflow: hidden;
 }
@@ -752,21 +767,13 @@ body.dark-mode .theme-option:has(input:checked) {
   white-space: nowrap;
 }
 
-.theme-sub {
-  font-size: 0.72rem;
-  color: var(--color-text-muted);
-  letter-spacing: normal;
-  word-spacing: normal;
-  white-space: nowrap;
-}
-
 /* --------------------------------------------------------------------------
    Opties / Toggles Raster (Experimentele Modus)
    -------------------------------------------------------------------------- */
 .toggles-grid {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 12px;
+  gap: 8px;
 }
 
 .toggle-control {
@@ -774,7 +781,7 @@ body.dark-mode .theme-option:has(input:checked) {
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding: 14px 16px;
+  padding: 10px 12px;
   background-color: var(--blokje-bg);
   border: 1px solid var(--blokje-border);
   border-radius: var(--radius-md);
@@ -877,9 +884,9 @@ body.dark-mode .slider {
   display: flex;
   align-items: center;
   gap: 12px;
-  margin-top: 20px;
-  margin-bottom: 14px;
-  padding-top: 18px;
+  margin-top: 12px;
+  margin-bottom: 10px;
+  padding-top: 10px;
   border-top: 1px dashed var(--color-border);
   flex-wrap: wrap;
 }
@@ -958,20 +965,20 @@ body.dark-mode .badge-experimental {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 8px;
-  padding-bottom: 18px;
-  margin-bottom: 18px;
+  padding-bottom: 12px;
+  margin-bottom: 12px;
   border-bottom: 1px solid var(--color-border);
 }
 
 .import-source-button {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  padding: 12px 14px;
+  padding: 10px 8px;
   font: inherit;
-  font-size: 0.92rem;
+  font-size: 0.84rem;
+  line-height: 1.3;
   font-weight: 600;
   color: var(--color-text-main);
   background-color: var(--blokje-bg);
@@ -1534,7 +1541,8 @@ body.dark-mode .upload-alert {
 
 textarea#text-input {
   width: 100%;
-  min-height: 180px;
+  height: 180px;
+  min-height: 120px;
   padding: 18px;
   font-family: var(--user-font-family);
   font-size: var(--user-font-size);
@@ -1833,6 +1841,11 @@ body.dark-mode .blokje-badge {
   line-height: var(--user-line-height);
   color: var(--color-text-main);
   word-break: break-word;
+  word-spacing: calc((var(--user-word-spacing) - 1) * 0.25em);
+}
+
+.continuous-reading .blokje-content {
+  white-space: pre-wrap;
 }
 
 body.show-syllables .blokje-content {
@@ -1884,6 +1897,7 @@ body.show-syllables .syl {
   user-select: text;
   vertical-align: middle;
   cursor: default;
+  word-spacing: normal;
 }
 
 body.show-syllables .syl:hover {
@@ -1975,7 +1989,7 @@ body.dark-mode.show-syllables:not(.color-syllables) .syl {
   border-radius: var(--radius-md);
   background-color: var(--blokje-bg);
   padding: 4px;
-  margin-bottom: 14px;
+  margin-bottom: 8px;
 }
 
 .reading-mode-button {
@@ -1984,10 +1998,11 @@ body.dark-mode.show-syllables:not(.color-syllables) .syl {
   align-items: center;
   justify-content: center;
   flex-wrap: wrap;
-  gap: 6px;
-  padding: 10px 8px;
+  gap: 4px;
+  padding: 8px 4px;
   font: inherit;
-  font-size: 0.9rem;
+  font-size: 0.82rem;
+  line-height: 1.3;
   font-weight: 600;
   color: var(--color-text-main);
   background: transparent;
@@ -2015,6 +2030,26 @@ body.dark-mode.show-syllables:not(.color-syllables) .syl {
   display: flex;
   flex-direction: column;
   gap: 12px;
+}
+
+.sound-guide {
+  margin: 2px 0 10px;
+  font-size: 0.86rem;
+}
+
+.sound-guide summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--color-text-muted);
+}
+
+.sound-guide summary:focus-visible {
+  outline: 3px solid var(--accent-amber);
+  outline-offset: 2px;
+}
+
+.sound-guide[open] .sound-legend {
+  margin: 14px 0;
 }
 
 .sound-legend {
@@ -2057,6 +2092,7 @@ body.sound-mode .blokje-content {
   border-radius: 10px;
   font-weight: 500;
   line-height: 1.25;
+  word-spacing: normal;
   color: #17212b;
   box-shadow: 0 2px 0 rgba(0, 0, 0, 0.16), 0 2px 4px rgba(0, 0, 0, 0.04);
 }
@@ -2464,9 +2500,15 @@ body.dark-mode .source-website-badge {
 }
 
 /* --------------------------------------------------------------------------
-   Responsiveness (Mobiel & Tablet onder 1200px)
+   Responsiveness (Mobiel & Tablet onder 960px)
    -------------------------------------------------------------------------- */
 @media (max-width: 1199px) {
+  .import-source-button {
+    flex-wrap: wrap;
+  }
+}
+
+@media (max-width: 959px) {
   body {
     padding: 16px 14px 36px;
   }

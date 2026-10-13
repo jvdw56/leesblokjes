@@ -14,6 +14,19 @@ meer; hiervoor blijven tekst plakken en de bookmarklet beschikbaar.
 
 ## Leesmodi
 
+De compacte instellingen bieden **Woordafstand** direct onder Regelafstand:
+0.8x tot 3.0x (standaard 1.0x). De slider verandert direct de ruimte tussen
+woorden in normale tekst, lettergreep- en klankweergave. De afstand binnen
+bouwstenen verandert niet. De voorkeur wordt in het leesprofiel opgeslagen.
+
+Onder Dyslexiemodus kies je daarnaast **Alineablokken** (standaard) of
+**Doorlopende tekst**. Deze keuze staat los van Lettergrepen/Klanken en wordt ook
+opgeslagen. Wisselen gebruikt de al verwerkte tekst, zonder nieuwe import of
+tekstopdeling. Doorlopende tekst behoudt de originele alinea's en regeleindes,
+zonder genummerde blokkaarten. Alles voorlezen, stoppen en kopieren blijven werken;
+kopieren van doorlopende tekst voegt geen bloknummers toe. Terugwisselen herstelt
+de oorspronkelijke blokken met hun voorleesknoppen en leeslampje.
+
 Kies in het persoonlijk leesprofiel tussen **Lettergrepen** (standaard) en
 **Klanken (beta)**. De keuze wordt samen met het leesprofiel in localStorage
 opgeslagen. De segmented control activeert altijd precies een modus. Wisselen bouwt
@@ -36,6 +49,7 @@ Klankmodus gebruikt de bestaande bouwsteenvorm met de classificatie van de leesk
 De langste klankgroep krijgt voorrang. Hoofdletters, spaties, leestekens en de
 originele tekst voor kopiëren en voorlezen blijven behouden. Klankkleuren blijven
 gelijk in alle achtergrondthema's.
+De volledige klanklegenda blijft beschikbaar via **Leeskaart en klankkleuren**.
 
 Voorbeelden: `school` wordt `[sch] [oo] [l]`, `schrijf` wordt `[schr] [ij] [f]`
 en `nieuws` wordt `[n] [ieuw] [s]`. Langste herkende clusters krijgen voorrang;
@@ -53,5 +67,6 @@ e/ig/lijk op de kaart zijn niet toegevoegd aan de expliciet gevraagde classifica
 Open [de leesmodustests](tests/reading-modes.html) via dezelfde lokale HTTP-server
 als de app. De browsertests controleren alle groepen en kleuren, markeringen,
 tekstbehoud, direct opnieuw opbouwen van de zes controlewoorden, bronkeuze,
-wederzijds exclusieve modi, profielherstel en localStorage (inclusief oude
-profielen). De opgeslagen profiel- en broninstellingen worden na afloop teruggezet.
+wederzijds exclusieve modi, woordafstand, doorlopende tekst, kopieren en voorlezen,
+profielherstel en localStorage (inclusief oude profielen). De opgeslagen profiel-
+en broninstellingen worden na afloop teruggezet.

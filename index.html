@@ -86,7 +86,6 @@
             <div class="profile-item profile-item-font">
               <label for="profile-font" class="profile-label">
                 <span class="profile-label-title">Lettertype</span>
-                <span class="profile-label-hint">Kies letters die voor jou het fijnst en rustigst zijn</span>
               </label>
               <div class="select-wrapper">
                 <select id="profile-font" class="profile-select" aria-label="Kies een lettertype">
@@ -104,7 +103,6 @@
               <div class="profile-label-row">
                 <label for="profile-font-size" class="profile-label">
                   <span class="profile-label-title">Tekstgrootte</span>
-                  <span class="profile-label-hint">Van klein naar lekker groot</span>
                 </label>
                 <span id="val-font-size" class="slider-badge" aria-live="polite">20 px</span>
               </div>
@@ -129,7 +127,6 @@
               <div class="profile-label-row">
                 <label for="profile-line-height" class="profile-label">
                   <span class="profile-label-title">Regelafstand</span>
-                  <span class="profile-label-hint">Ruimte tussen de regels</span>
                 </label>
                 <span id="val-line-height" class="slider-badge" aria-live="polite">1.8×</span>
               </div>
@@ -149,11 +146,33 @@
               </div>
             </div>
 
-            <!-- 4. Achtergrondkleur (5 opties) -->
+            <div class="profile-item">
+              <div class="profile-label-row">
+                <label for="profile-word-spacing" class="profile-label">
+                  <span class="profile-label-title">Woordafstand</span>
+                </label>
+                <span id="val-word-spacing" class="slider-badge" aria-live="polite">1.0×</span>
+              </div>
+              <div class="slider-container">
+                <span class="slider-end-label" aria-hidden="true">↔</span>
+                <input
+                  type="range"
+                  id="profile-word-spacing"
+                  class="profile-slider"
+                  min="0.8"
+                  max="3.0"
+                  step="0.1"
+                  value="1.0"
+                  aria-label="Woordafstand van 0.8 tot 3.0"
+                >
+                <span class="slider-end-label expanded-lines" aria-hidden="true">⟷</span>
+              </div>
+            </div>
+
+            <!-- Achtergrondkleur (5 opties) -->
             <div class="profile-item profile-item-theme">
               <div class="profile-label">
                 <span class="profile-label-title" id="theme-group-label">Achtergrondkleur</span>
-                <span class="profile-label-hint">Kies een zachte achtergrond die niet schittert</span>
               </div>
               <div class="theme-picker" role="radiogroup" aria-labelledby="theme-group-label">
                 
@@ -162,7 +181,6 @@
                   <span class="theme-swatch swatch-creme" aria-hidden="true"></span>
                   <span class="theme-text">
                     <span class="theme-name">Crème</span>
-                    <span class="theme-sub">Standaard</span>
                   </span>
                 </label>
 
@@ -171,7 +189,6 @@
                   <span class="theme-swatch swatch-blauw" aria-hidden="true"></span>
                   <span class="theme-text">
                     <span class="theme-name">Lichtblauw</span>
-                    <span class="theme-sub">Rustig</span>
                   </span>
                 </label>
 
@@ -180,7 +197,6 @@
                   <span class="theme-swatch swatch-groen" aria-hidden="true"></span>
                   <span class="theme-text">
                     <span class="theme-name">Lichtgroen</span>
-                    <span class="theme-sub">Zacht</span>
                   </span>
                 </label>
 
@@ -189,7 +205,6 @@
                   <span class="theme-swatch swatch-geel" aria-hidden="true"></span>
                   <span class="theme-text">
                     <span class="theme-name">Lichtgeel</span>
-                    <span class="theme-sub">Warm</span>
                   </span>
                 </label>
 
@@ -198,7 +213,6 @@
                   <span class="theme-swatch swatch-donker" aria-hidden="true"></span>
                   <span class="theme-text">
                     <span class="theme-name">Donker</span>
-                    <span class="theme-sub">Gedimd</span>
                   </span>
                 </label>
 
@@ -209,7 +223,6 @@
           <!-- Dyslexiemodus: lettergrepen of klanken -->
           <div class="experimental-divider">
             <span class="profile-label-title">Dyslexiemodus <span class="badge-beta-tag">BETA</span></span>
-            <span class="experimental-desc">Lees met bouwstenen voor lettergrepen of klanken</span>
           </div>
 
           <div class="reading-mode-picker" role="group" aria-label="Leesmodus">
@@ -217,8 +230,14 @@
             <button type="button" class="reading-mode-button" data-reading-mode="sounds" aria-pressed="false">Klanken <span class="badge-beta-tag">BETA</span></button>
           </div>
 
+          <div class="reading-mode-picker" role="group" aria-label="Tekstweergave">
+            <button type="button" class="reading-mode-button" data-reading-layout="blocks" aria-pressed="true">Alineablokken</button>
+            <button type="button" class="reading-mode-button" data-reading-layout="continuous" aria-pressed="false">Doorlopende tekst</button>
+          </div>
+
           <div id="sound-mode-info" class="sound-mode-info" hidden>
-            <p>Klankmodus (beta): bouwstenen volgens de leeskaart.</p>
+            <details class="sound-guide">
+            <summary>Leeskaart en klankkleuren</summary>
             <ul class="sound-legend">
               <li><span class="sound sound-green">a e i o u</span> Groen</li>
               <li><span class="sound sound-yellow">aa ee oo uu</span> Geel</li>
@@ -228,6 +247,7 @@
               <li><span class="sound sound-blue">schr</span> Blauw: medeklinkers en clusters</li>
             </ul>
             <p class="profile-label-hint">Herkent geschreven klankgroepen, niet de uitspraak. Klemtoon, leenwoorden en lettergreepgrenzen kunnen afwijken.</p>
+            </details>
           </div>
 
           <div id="syllable-options" class="toggles-grid">
