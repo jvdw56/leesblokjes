@@ -72,14 +72,6 @@
                   <span class="profile-choice-title">Focuslezen</span>
                   <span class="profile-choice-indicator" aria-hidden="true">✓</span>
                 </button>
-                <button type="button" role="radio" class="reading-profile-choice" data-reading-profile="personal" aria-checked="false" tabindex="-1" aria-description="Kies zelf welke ondersteuning zichtbaar is.">
-                  <span class="profile-choice-title">Persoonlijke hulp</span>
-                  <span class="profile-choice-indicator" aria-hidden="true">✓</span>
-                </button>
-                <button type="button" role="radio" class="reading-profile-choice" data-reading-profile="sounds" aria-checked="false" tabindex="-1" aria-description="Toon uitgebreide klankweergave.">
-                  <span class="profile-choice-title">Klanken</span>
-                  <span class="profile-choice-indicator" aria-hidden="true">✓</span>
-                </button>
               </div>
             </section>
             <!-- 1. Lettertype -->
@@ -226,31 +218,8 @@
             </section>
           </div>
 
-          <section id="personal-options" aria-labelledby="personal-options-title" hidden>
-            <h3 id="personal-options-title" class="profile-label-title">Persoonlijke ondersteuning</h3>
-            <div class="toggles-grid">
-              <label class="toggle-control" for="help-long">
-                <span class="toggle-title">Lange klanken markeren</span>
-                <span class="switch"><input type="checkbox" id="help-long" role="switch" checked><span class="slider"></span></span>
-              </label>
-              <label class="toggle-control" for="help-double">
-                <span class="toggle-title">Tweetekenklanken markeren</span>
-                <span class="switch"><input type="checkbox" id="help-double" role="switch" checked><span class="slider"></span></span>
-              </label>
-              <label class="toggle-control" for="help-difficult">
-                <span class="toggle-title">Moeilijke klankgroepen markeren</span>
-                <span class="switch"><input type="checkbox" id="help-difficult" role="switch" checked><span class="slider"></span></span>
-              </label>
-              <label class="toggle-control" for="help-position">
-                <span class="toggle-title">Leespositie markeren</span>
-                <span class="switch"><input type="checkbox" id="help-position" role="switch" checked><span class="slider"></span></span>
-              </label>
-              <label class="toggle-control" for="help-speech">
-                <span class="toggle-title">Voorleeshulp</span>
-                <span class="switch"><input type="checkbox" id="help-speech" role="switch" checked><span class="slider"></span></span>
-              </label>
-            </div>
-            <h3 class="profile-label-title">Overige instellingen</h3>
+          <section id="reading-options" aria-labelledby="reading-options-title">
+            <h3 id="reading-options-title" class="profile-label-title">Overige instellingen</h3>
           <div id="syllable-options" class="toggles-grid">
             <!-- Optie 5: Lettergrepen tonen -->
             <label class="toggle-control" for="toggle-show-syllables">
@@ -287,8 +256,6 @@
       <nav class="import-navigation" aria-label="Importbron kiezen">
         <button type="button" class="import-source-button is-active" id="tab-btn-text" aria-pressed="true" aria-controls="import-panel-text">✏️ Tekst plakken</button>
         <button type="button" class="import-source-button" id="tab-btn-doc" aria-pressed="false" aria-controls="import-panel-doc">📄 Document uploaden</button>
-        <button type="button" class="import-source-button" id="tab-btn-web" aria-pressed="false" aria-controls="import-panel-web">🌍 Webpagina importeren</button>
-        <button type="button" class="import-source-button" id="tab-btn-bookmarklet" aria-pressed="false" aria-controls="import-panel-bookmarklet">🧪 LeesBlokjes™ op websites <span class="badge-beta-tag">BETA</span></button>
       </nav>
 
       <div class="import-panel" id="import-panel-text" role="region" aria-labelledby="tab-btn-text">
@@ -413,177 +380,6 @@
             </div>
           </div>
 
-      <!-- Webpagina importeren -->
-          <div class="import-panel" id="import-panel-web" role="region" aria-labelledby="tab-btn-web" hidden>
-            <div class="web-import-card">
-              <div class="upload-top-bar">
-                <span class="upload-label-title">
-                  <span class="emoji-icon" aria-hidden="true">🌍</span> Webpagina importeren
-                </span>
-              </div>
-
-              <!-- URL Invoeren & Ophalen Formulier -->
-              <div class="web-import-form">
-                <div class="web-url-wrapper">
-                  <span class="web-url-icon" aria-hidden="true">🔗</span>
-                  <input
-                    type="url"
-                    id="web-url-input"
-                    class="web-url-input"
-                    placeholder="Typ of plak een link, bijv. https://nl.wikipedia.org/wiki/Dolfijnen"
-                    aria-label="URL invoeren van een webpagina"
-                  >
-                  <button type="button" id="btn-clear-url" class="btn-clear-url" title="URL wissen" style="display: none;" aria-label="URL wissen">✕</button>
-                </div>
-                <button type="button" id="btn-fetch-webpage" class="btn-primary btn-fetch-web">
-                  <span class="btn-icon" aria-hidden="true">🌐</span>
-                  <span class="btn-text">Pagina ophalen</span>
-                </button>
-              </div>
-
-              <!-- Voorbeeld suggesties / snelkoppelingen -->
-              <div class="web-suggestions">
-                <span class="suggestions-label">Voorbeelden:</span>
-                <button type="button" class="btn-chip" data-url="https://nl.wikipedia.org/wiki/Dolfijnen">🐬 Dolfijnen (Wikipedia)</button>
-                <button type="button" class="btn-chip" data-url="https://nl.wikipedia.org/wiki/Maan">🌙 De Maan (Wikipedia)</button>
-              </div>
-
-              <!-- Web status: Bezig met ophalen -->
-              <div class="upload-processing" id="web-processing" style="display: none;" aria-live="polite">
-                <div class="upload-spinner" aria-hidden="true"></div>
-                <div class="upload-processing-content">
-                  <p class="upload-processing-title" id="web-processing-title">Bezig met pagina ophalen...</p>
-                  <p class="upload-processing-sub">We halen de hoofdtekst veilig en direct voor je op</p>
-                </div>
-              </div>
-
-              <!-- Web status: Succesvol geladen -->
-              <div class="upload-success" id="web-success" style="display: none;" aria-live="polite">
-                <div class="upload-success-content">
-                  <div class="upload-success-badge" aria-hidden="true">✅</div>
-                  <div class="upload-success-meta">
-                    <div class="upload-success-headline">Webpagina succesvol geladen</div>
-                    <div class="upload-file-details">
-                      <span class="upload-file-icon" aria-hidden="true">🌍</span>
-                      <span class="upload-file-name" id="web-page-title">Pagina titel</span>
-                      <span class="upload-dot-sep" aria-hidden="true">•</span>
-                      <span class="upload-word-count" id="web-word-count">0 woorden gevonden</span>
-                    </div>
-                  </div>
-                </div>
-                <div class="upload-success-actions">
-                  <button
-                    type="button"
-                    id="btn-remove-web"
-                    class="btn-ghost btn-sm btn-remove-file"
-                    title="Andere pagina ophalen"
-                  >
-                    <span aria-hidden="true">✕</span> Andere URL
-                  </button>
-                </div>
-              </div>
-
-              <!-- Web alert / foutafhandeling (CORS / beveiliging / ongeldig) -->
-              <div class="upload-alert" id="web-alert" style="display: none;" role="alert">
-                <span class="upload-alert-icon" aria-hidden="true">⚠️</span>
-                <div class="upload-alert-content">
-                  <p class="upload-alert-text" id="web-alert-text"></p>
-                </div>
-                <button type="button" class="upload-alert-close" id="btn-close-web-alert" aria-label="Sluit deze melding">✕</button>
-              </div>
-
-              <!-- Tip voor websites die directe toegang blokkeren -->
-              <div class="web-bookmarklet-tip">
-                <span class="hint-icon" aria-hidden="true">💡</span>
-                <span class="hint-text">
-                  Blokkeert een website directe toegang?
-                  <button type="button" id="btn-goto-bookmarklet" class="link-btn">Gebruik de bladwijzer (BETA) ➔</button>
-                </span>
-              </div>
-            </div>
-          </div>
-
-      <!-- LeesBlokjes op websites (BETA) -->
-          <div class="import-panel" id="import-panel-bookmarklet" role="region" aria-labelledby="tab-btn-bookmarklet" hidden>
-            <div class="bookmarklet-card" id="bookmarklet-card">
-              <div class="upload-top-bar">
-                <span class="upload-label-title">
-                  <span class="emoji-icon" aria-hidden="true">🧪</span> LeesBlokjes™ op websites
-                </span>
-                <span class="upload-badge badge-beta-pill">BETA • Experimenteel</span>
-              </div>
-
-              <!-- Duidelijke waarschuwing dat deze functie BETA is -->
-              <div class="beta-notice-banner" role="note">
-                <span class="beta-notice-icon" aria-hidden="true">⚠️</span>
-                <div class="beta-notice-content">
-                  <strong>Let op (BETA):</strong> Deze bookmarklet-functie is experimenteel en werkt nog niet op iedere website even betrouwbaar. Voor dagelijks gebruik raden we aan om tekst direct in te plakken.
-                </div>
-              </div>
-
-              <p class="bookmarklet-intro">
-                Met de <strong>LeesBlokjes™-bladwijzer</strong> kun je op iedere website (zoals Nu.nl, Jeugdjournaal, Wikipedia of Schooltv) met één klik de hoofdtekst direct in LeesBlokjes™ openen.
-              </p>
-
-              <div class="bookmarklet-action-row">
-                <button type="button" id="btn-make-bookmarklet" class="btn-primary btn-make-bookmarklet">
-                  <span class="btn-icon" aria-hidden="true">🪄</span>
-                  <span class="btn-text">Maak LeesBlokjes™-bladwijzer</span>
-                </button>
-              </div>
-
-              <!-- Wordt getoond na klikken op "Maak LeesBlokjes Bookmarklet" -->
-              <div class="bookmarklet-result-card" id="bookmarklet-result" style="display: none;" aria-live="polite">
-                <div class="bookmarklet-instruction-callout">
-                  <span class="instruction-arrow" aria-hidden="true">👇</span>
-                  <p class="bookmarklet-instruction-text" id="bookmarklet-instruction-text">
-                    Sleep deze knop naar je bladwijzerbalk.
-                  </p>
-                </div>
-
-                <div class="bookmarklet-drag-area">
-                  <a
-                    href="#"
-                    id="bookmarklet-link"
-                    class="bookmarklet-pill"
-                    title="Sleep deze knop naar je bladwijzerbalk"
-                    draggable="true"
-                    role="button"
-                  >
-                    <span class="bm-icon" aria-hidden="true">📖</span>
-                    <span class="bm-title">Lees in LeesBlokjes™</span>
-                  </a>
-                  <button
-                    type="button"
-                    id="btn-copy-bookmarklet"
-                    class="btn-ghost btn-sm btn-copy-bm"
-                    title="Kopieer de javascript-code naar je klembord"
-                  >
-                    📋 Kopieer code
-                  </button>
-                </div>
-
-                <div class="bookmarklet-steps-guide">
-                  <div class="bm-step">
-                    <span class="bm-step-num">1</span>
-                    <span class="bm-step-text"><strong>Sleep de knop</strong> hierboven naar de bladwijzerbalk van Chrome, Edge, Firefox of Safari.</span>
-                  </div>
-                  <div class="bm-step">
-                    <span class="bm-step-num">2</span>
-                    <span class="bm-step-text"><strong>Open een webpagina</strong> die je graag rustig wilt lezen (bijv. op Nu.nl of Jeugdjournaal).</span>
-                  </div>
-                  <div class="bm-step">
-                    <span class="bm-step-num">3</span>
-                    <span class="bm-step-text"><strong>Klik op de LeesBlokjes™-bladwijzer:</strong> het artikel opent meteen hier in rustige blokjes! 🎉</span>
-                  </div>
-                </div>
-
-                <p class="bookmarklet-shortcut-hint">
-                  💡 <em>Zie je geen bladwijzerbalk? Druk op <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>B</kbd> (Windows/Chromebook) of <kbd>Cmd</kbd> + <kbd>Shift</kbd> + <kbd>B</kbd> (Mac) om hem zichtbaar te maken.</em>
-                </p>
-              </div>
-            </div>
-          </div>
     </section>
 
     <!-- Uitvoergebied -->
@@ -603,27 +399,6 @@
           <button type="button" id="btn-copy" class="btn-secondary" title="Kopieer de tekst">
             📋 Kopieer tekst
           </button>
-        </div>
-      </div>
-
-      <!-- Leesmodus: Bronvermelding boven de uitvoer (bij Bookmarklet & Webpagina import) -->
-      <div class="source-banner" id="source-banner" style="display: none;" role="region" aria-label="Bronvermelding van de tekst">
-        <div class="source-banner-top">
-          <div class="source-website-badge">
-            <span class="source-badge-icon" aria-hidden="true">🌐</span>
-            <span class="source-badge-text" id="source-website-name">Website</span>
-          </div>
-          <button type="button" class="btn-close-source" id="btn-close-source" title="Bronvermelding verbergen" aria-label="Sluit bronvermelding">✕</button>
-        </div>
-        <div class="source-banner-content">
-          <div class="source-banner-row">
-            <span class="source-label">Bron:</span>
-            <span class="source-value" id="source-title-display">[paginatitel]</span>
-          </div>
-          <div class="source-banner-row">
-            <span class="source-label">URL:</span>
-            <a href="#" class="source-value source-url" id="source-url-display" target="_blank" rel="noopener noreferrer">[website]</a>
-          </div>
         </div>
       </div>
 

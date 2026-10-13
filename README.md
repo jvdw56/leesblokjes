@@ -2,22 +2,21 @@
 
 ## Importbronnen
 
-De vier knoppen boven de invoer openen elk een eigen paneel: **Tekst plakken**,
-**Document uploaden**, **Webpagina importeren** en **LeesBlokjes op websites (BETA)**.
+De twee knoppen boven de invoer openen elk een eigen paneel: **Tekst plakken**
+en **Document uploaden**.
 Er is altijd precies een paneel open; opnieuw klikken sluit het niet.
 Bij het eerste bezoek staat Tekst plakken open. Daarna wordt de laatst gekozen
 bron hersteld uit localStorage. Invoer en importstatus blijven behouden bij wisselen.
 
-Webpagina importeren toont alleen Wikipedia-voorbeelden, die via de Wikimedia-API
-worden opgehaald. Sites die directe browsertoegang blokkeren zijn geen voorbeelden
-meer; hiervoor blijven tekst plakken en de bookmarklet beschikbaar.
+Word (.docx) en PDF (.pdf) worden lokaal in de browser verwerkt met de bestaande
+Mammoth- en PDF.js-bibliotheken. Tekst kan ook direct worden getypt of geplakt.
 
 ## Leesprofiel
 
 Het instellingenpaneel blijft beschikbaar en is niet inklapbaar. De volgorde is
 Leesprofiel, Lettertype, Lettergrootte, Regelafstand, Woordafstand,
-Achtergrondkleur, Tekstweergave en de aanvullende persoonlijke instellingen.
-Leesprofiel toont permanent vier kaarten in een 2x2-raster; precies een kaart is
+Achtergrondkleur, Tekstweergave en Overige instellingen.
+Leesprofiel toont permanent twee kaarten naast elkaar; precies een kaart is
 actief. De keuze wordt bij verversen hersteld. De compacte kaarten tonen alleen
 de profielnaam; de beschrijving blijft beschikbaar voor schermlezers.
 Een blauwe rand en een vinkje markeren het actieve profiel. Pijltjestoetsen,
@@ -29,20 +28,13 @@ Home en End verplaatsen selectie en focus; Tab verlaat de radiogroep.
   nadruk; de overige tekst blijft zichtbaar maar minder prominent. Enter of
   spatie activeert/uitschakelt de woordpositie. Het bestaande leeslampje per
   alineablok blijft beschikbaar.
-- **Persoonlijke hulp**: schakel lange klanken (aa/ee/oo/uu),
-  tweetekenklanken (ij/ei/ou/au/ie/oe/eu/ui), moeilijke groepen
-  (aai/ooi/oei/eeuw/ieuw/uw en herkende medeklinkerclusters), leespositie en
-  voorleeshulp afzonderlijk in of uit. Uitgeschakelde groepen blijven als gewone
-  tekst zichtbaar. Alle markeringen uit geeft gewone tekst.
-- **Klanken**: de volledige bestaande klankbouwstenen. Voorlopig identiek aan
-  Klanknavigator, zoals afgesproken; er zijn geen nieuwe detectieregels.
 
-Persoonlijke hulp bewaart daarnaast de bestaande opties **Lettergrepen tonen**
-en **Lettergrepen kleuren** onder Overige instellingen. Lettergrepen tonen
-vervangt de selectieve klankmarkeringen. De drie klankschakelaars blijven bruikbaar:
-een wijziging schakelt direct terug naar de selectieve klankweergave, zonder
-overige voorkeuren te wissen. De oude losse modusknoppen en de
-uitklapbare klanklegenda zijn verwijderd.
+**Lettergrepen tonen** en **Lettergrepen kleuren** staan permanent onder
+Overige instellingen. Binnen Klanknavigator vervangt Lettergrepen tonen de
+klankbouwstenen door de bestaande geschreven Nederlandse lettergreepblokken.
+De kleurschakelaar behoudt de bestaande pastelkleuren. Focuslezen houdt zijn
+rustige tekstweergave; beide voorkeuren blijven bewaard bij profielwisselingen
+en worden direct weer toegepast bij terugkeer naar Klanknavigator.
 
 Profielwisselingen maken bestaande uitvoer opnieuw op via `renderBlocks`, zonder
 tekst opnieuw te importeren of nog niet verwerkte wijzigingen in het invoervak
@@ -98,9 +90,9 @@ en `aardrijkskundeles`. `DUTCH_SUFFIX_STEMS` beperkt speciale achtervoegselregel
 tot bekende stammen. Deze lijsten zijn uitbreidbaar zonder de hoofdlogica of
 klankkleuren te wijzigen.
 
-### Klanken volgens de leeskaart
+### Klanknavigator volgens de leeskaart
 
-Klankmodus gebruikt de bestaande bouwsteenvorm met de classificatie van de leeskaart:
+Klanknavigator gebruikt de bestaande bouwsteenvorm met de classificatie van de leeskaart:
 
 | Kleur | Geschreven klankgroepen | Markering |
 | --- | --- | --- |
@@ -131,8 +123,7 @@ e/ig/lijk op de kaart zijn niet toegevoegd aan de expliciet gevraagde classifica
 ### Opgeslagen voorkeuren
 
 - `leesblokjes_leesprofiel`: onder meer `wordSpacing`, `readingLayout`,
-  `readingProfile` (`navigator`, `focus`, `personal`, `sounds`), `help`
-  (`longSounds`, `doubleSounds`, `difficultSounds`, `readingPosition`, `speech`),
+  `readingProfile` (`navigator`, `focus`),
   de interne `readingMode`, lettergreepvoorkeuren, lettertype, grootte,
   regelafstand en thema. Er zijn geen nieuwe localStorage-sleutels.
 - `leesblokjes_instellingen`: migratie van het oude instellingenformaat.
@@ -141,12 +132,13 @@ e/ig/lijk op de kaart zijn niet toegevoegd aan de expliciet gevraagde classifica
 - `leesblokjes_paneel_ingeklapt`: oude sleutel; wordt niet meer gelezen of
   gewijzigd, omdat de profielen niet verborgen mogen worden.
 
-Oude opgeslagen klankmodus wordt profiel Klanken; oude lettergreepinstellingen
-worden Persoonlijke hulp met behoud van tonen/kleuren. Oude gewone tekst behoudt
-gewone tekst door de drie klankmarkeringen uit te schakelen. Een oude gele
-achtergrond wordt Crème; `blauw` en `groen` behouden hun sleutels en krijgen de
+Oude verwijderde profielen worden Klanknavigator. Bestaande lettergreepinstellingen
+blijven behouden; een oude volledige klankweergave blijft volledige klankweergave.
+Verwijderde ondersteuningsschakelaars worden niet meer opgeslagen of toegepast.
+Een oude gele achtergrond wordt Crème; `blauw` en `groen` behouden hun sleutels en krijgen de
 warme tinten. De migratie wordt in het bestaande leesprofiel opgeslagen en
 behoudt de andere voorkeuren. Zonder opgeslagen profiel start Klanknavigator.
+Verwijderde bronkeuzes worden teruggezet naar Tekst plakken en opnieuw opgeslagen.
 Ongeldige profiel-, thema- en weergavewaarden krijgen veilige standaardwaarden.
 Lettertypen worden tegen de bestaande lijst gecontroleerd, getallen op
 eindigheid en bereik en schakelaars op hun booleaanse type. Corrupte opslag
@@ -165,9 +157,8 @@ en broninstellingen worden na afloop teruggezet.
 De suite legt de tien gevraagde lettergreepverdelingen expliciet vast, inclusief
 hoofdletters, leestekens, apostroffen, koppeltekens, korte en onbekende woorden.
 Kleine DOCX- en PDF-bestanden worden in de test gegenereerd en via de echte
-Mammoth- en PDF.js-extractie en uploadhandler verwerkt. Webimport gebruikt een
-gecontroleerd antwoord; live Wikipedia-import kan aanvullend met de voorbeeldknoppen
-worden gecontroleerd. Clipboard en spraak worden gecontroleerd met testdubbels;
+Mammoth- en PDF.js-extractie en uploadhandler verwerkt.
+Clipboard en spraak worden gecontroleerd met testdubbels;
 dit verifieert tekst en aansturing, niet het daadwerkelijk hoorbare geluid.
 
 Voor 1920x1080, 1366x768 en 390x844 worden alle vijf woordafstandstanden gemeten
@@ -175,15 +166,19 @@ in normale tekst, lettergrepen en klanken, zowel in blokken als doorlopende teks
 De suite controleert ook ongewijzigde woordbreedtes, exclusieve DOM-structuren,
 tekstbehoud, kleuren en het ontbreken van horizontale pagina-overflow.
 
-Aanvullende profieltests controleren het permanente 2x2-raster op alle drie
-schermformaten, profielherstel, migraties, ondersteuning aan/uit, woordfocus via
+Aanvullende profieltests controleren de permanente compacte profielrij op alle drie
+schermformaten, profielherstel, migraties, lettergreepschakelaars, woordfocus via
 muis/toetsenbord, de woordpositie bij voorlezen en het negeren van oude
 spraakcallbacks. De volledige invoerroute test typen/plakken, voorbeeldtekst,
 wissen, woordentelling, opnieuw verwerken en direct wisselen zonder extra
 verwerkklik. Aanvullend worden gelijke kaartmaten op 320px, de eenkolomsfallback
-onder 300px, toetsenbordselectie, corrupte/geblokkeerde opslag, import- en
+onder 300px, toetsenbordselectie, corrupte/geblokkeerde opslag, document- en
 spraakfouten en tekstcontrast van minimaal 4.5:1 gecontroleerd. Documenttests
 controleren ook de bestandskeuze- en drop-events met echte DOCX/PDF-bestanden.
+Beide documentformaten worden eveneens met lettergreepblokken en Focuslezen
+getest, inclusief behoud van de melding bij documenten zonder uitleesbare tekst.
+Regressietests controleren tevens dat externe import-API's ontbreken en
+queryparameters, hashparameters en externe berichten geen tekst importeren.
 Er is geen afzonderlijk build- of lintscript: dit is een statische
 HTML/CSS/JavaScript-app; de browsertests laden de echte applicatie en controleren
 de bestaande functionaliteit.

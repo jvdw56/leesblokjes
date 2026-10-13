@@ -29,19 +29,11 @@ document.addEventListener('DOMContentLoaded', () => {
   const themeRadios = document.querySelectorAll('input[name="profile-theme"]');
   const btnResetProfile = document.getElementById('btn-reset-profile');
 
-  // Dyslexiemodus
+  // Leesweergave
   const toggleShowSyllables = document.getElementById('toggle-show-syllables');
   const toggleColorSyllables = document.getElementById('toggle-color-syllables');
   const readingProfileButtons = document.querySelectorAll('[data-reading-profile]');
   const readingLayoutButtons = document.querySelectorAll('[data-reading-layout]');
-  const personalOptions = document.getElementById('personal-options');
-  const helpControls = {
-    longSounds: document.getElementById('help-long'),
-    doubleSounds: document.getElementById('help-double'),
-    difficultSounds: document.getElementById('help-difficult'),
-    readingPosition: document.getElementById('help-position'),
-    speech: document.getElementById('help-speech')
-  };
   let readingProfile = 'navigator';
   let readingMode = 'syllables';
   let readingLayout = 'blocks';
@@ -62,44 +54,11 @@ document.addEventListener('DOMContentLoaded', () => {
   const uploadAlertText = document.getElementById('upload-alert-text');
   const btnCloseAlert = document.getElementById('btn-close-alert');
 
-  // --- DOM Elementen voor Webpagina Import & Tabs ---
+  // --- DOM Elementen voor Invoerbronnen ---
   const tabBtnText = document.getElementById('tab-btn-text');
   const importPanelText = document.getElementById('import-panel-text');
   const tabBtnDoc = document.getElementById('tab-btn-doc');
-  const tabBtnWeb = document.getElementById('tab-btn-web');
   const importPanelDoc = document.getElementById('import-panel-doc');
-  const importPanelWeb = document.getElementById('import-panel-web');
-
-  const webUrlInput = document.getElementById('web-url-input');
-  const btnClearUrl = document.getElementById('btn-clear-url');
-  const btnFetchWebpage = document.getElementById('btn-fetch-webpage');
-  const webProcessing = document.getElementById('web-processing');
-  const webProcessingTitle = document.getElementById('web-processing-title');
-  const webSuccess = document.getElementById('web-success');
-  const webSuccessTitle = document.getElementById('web-page-title');
-  const webWordCount = document.getElementById('web-word-count');
-  const btnRemoveWeb = document.getElementById('btn-remove-web');
-  const webAlert = document.getElementById('web-alert');
-  const webAlertText = document.getElementById('web-alert-text');
-  const btnCloseWebAlert = document.getElementById('btn-close-web-alert');
-  const webSuggestions = document.querySelector('.web-suggestions');
-  const btnGotoBookmarklet = document.getElementById('btn-goto-bookmarklet');
-
-  // --- DOM Elementen voor Bookmarklet Generator (LeesBlokjes op websites) ---
-  const tabBtnBookmarklet = document.getElementById('tab-btn-bookmarklet');
-  const importPanelBookmarklet = document.getElementById('import-panel-bookmarklet');
-  const btnMakeBookmarklet = document.getElementById('btn-make-bookmarklet');
-  const bookmarkletResult = document.getElementById('bookmarklet-result');
-  const bookmarkletInstructionText = document.getElementById('bookmarklet-instruction-text');
-  const bookmarkletLink = document.getElementById('bookmarklet-link');
-  const btnCopyBookmarklet = document.getElementById('btn-copy-bookmarklet');
-
-  // --- DOM Elementen voor Leesmodus Bronvermelding ---
-  const sourceBanner = document.getElementById('source-banner');
-  const sourceWebsiteName = document.getElementById('source-website-name');
-  const sourceTitleDisplay = document.getElementById('source-title-display');
-  const sourceUrlDisplay = document.getElementById('source-url-display');
-  const btnCloseSource = document.getElementById('btn-close-source');
 
   // --- Spraaksynthese (Voorlezen) State ---
   let synth = window.speechSynthesis || null;
@@ -130,16 +89,8 @@ document.addEventListener('DOMContentLoaded', () => {
     theme: 'creme',
     showSyllables: false,
     colorSyllables: true,
-    readingMode: 'sounds',
     readingLayout: 'blocks',
-    readingProfile: 'navigator',
-    help: {
-      longSounds: true,
-      doubleSounds: true,
-      difficultSounds: true,
-      readingPosition: true,
-      speech: true
-    }
+    readingProfile: 'navigator'
   };
 
   function normalizeProfile(value) {
@@ -161,7 +112,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const choices = {
       font: Object.keys(FONT_MAP),
       theme: ['creme', 'blauw', 'groen', 'donker'],
-      readingProfile: ['navigator', 'focus', 'personal', 'sounds'],
+      readingProfile: ['navigator', 'focus'],
       readingLayout: ['blocks', 'continuous']
     };
     for (const [key, allowed] of Object.entries(choices)) {
@@ -171,16 +122,6 @@ document.addEventListener('DOMContentLoaded', () => {
     for (const key of ['showSyllables', 'colorSyllables']) {
       if (typeof profile[key] === 'boolean') normalized[key] = profile[key];
       else if (Object.hasOwn(profile, key)) console.warn(`Ongeldige leesinstelling ${key}; standaardwaarde wordt gebruikt.`);
-    }
-    normalized.help = { ...DEFAULT_PROFILE.help };
-    const help = profile.help;
-    if (help !== undefined && (help === null || typeof help !== 'object' || Array.isArray(help))) {
-      console.warn('Ongeldige persoonlijke ondersteuning; standaardwaarden worden gebruikt.');
-    } else if (help) {
-      for (const key of Object.keys(normalized.help)) {
-        if (typeof help[key] === 'boolean') normalized.help[key] = help[key];
-        else if (Object.hasOwn(help, key)) console.warn(`Ongeldige ondersteuning ${key}; standaardwaarde wordt gebruikt.`);
-      }
     }
     return normalized;
   }
@@ -239,20 +180,16 @@ document.addEventListener('DOMContentLoaded', () => {
     if (updateInputs && toggleColorSyllables) {
       toggleColorSyllables.checked = colorSyl;
     }
-    for (const [key, control] of Object.entries(helpControls)) {
-      control.checked = typeof profile.help?.[key] === 'boolean' ? profile.help[key] : DEFAULT_PROFILE.help[key];
-    }
     setReadingProfile(profile.readingProfile, showSyl, colorSyl);
   }
 
   function setReadingProfile(profile, showSyllables = toggleShowSyllables.checked, colorSyllables = toggleColorSyllables.checked) {
-    readingProfile = ['navigator', 'focus', 'personal', 'sounds'].includes(profile) ? profile : 'navigator';
-    readingMode = readingProfile === 'personal' && showSyllables ? 'syllables' : 'sounds';
+    readingProfile = ['navigator', 'focus'].includes(profile) ? profile : 'navigator';
+    readingMode = readingProfile === 'navigator' && showSyllables ? 'syllables' : 'sounds';
     document.body.dataset.activeProfile = readingProfile;
     document.body.classList.toggle('sound-mode', readingMode === 'sounds' && readingProfile !== 'focus');
     document.body.classList.toggle('show-syllables', readingMode === 'syllables' && showSyllables);
     document.body.classList.toggle('color-syllables', readingMode === 'syllables' && colorSyllables);
-    personalOptions.hidden = readingProfile !== 'personal';
     readingProfileButtons.forEach(button => {
       const selected = button.dataset.readingProfile === readingProfile;
       button.setAttribute('aria-checked', String(selected));
@@ -264,19 +201,10 @@ document.addEventListener('DOMContentLoaded', () => {
       const rawText = textInput.value.trim();
       renderBlocks(splitIntoReadingBlocks(rawText), false, rawText);
     }
-    btnReadAll.hidden = !speechEnabled();
-  }
-
-  function positionEnabled() {
-    return readingProfile !== 'personal' || helpControls.readingPosition.checked;
   }
 
   function wordFocusEnabled() {
-    return readingProfile === 'focus' || (readingProfile === 'personal' && positionEnabled());
-  }
-
-  function speechEnabled() {
-    return readingProfile !== 'personal' || helpControls.speech.checked;
+    return readingProfile === 'focus';
   }
 
   function applyWordSpacing(value, updateInputs = true) {
@@ -310,8 +238,7 @@ document.addEventListener('DOMContentLoaded', () => {
       colorSyllables: Boolean(toggleColorSyllables?.checked),
       readingMode,
       readingLayout,
-      readingProfile,
-      help: Object.fromEntries(Object.entries(helpControls).map(([key, control]) => [key, control.checked]))
+      readingProfile
     };
   }
 
@@ -352,11 +279,13 @@ document.addEventListener('DOMContentLoaded', () => {
       const legacyProfile = !Object.hasOwn(saved, 'readingProfile') &&
         (['sounds', 'syllables'].includes(saved.readingMode) ||
           typeof saved.showSyllables === 'boolean' || typeof saved.colorSyllables === 'boolean');
-      if (legacyProfile) {
-        migrated.readingProfile = saved.readingMode === 'sounds' ? 'sounds' : 'personal';
-        migrated.showSyllables = typeof saved.showSyllables === 'boolean' ? saved.showSyllables : true;
-        if (migrated.readingProfile === 'personal' && !migrated.showSyllables) {
-          migrated.help = { ...DEFAULT_PROFILE.help, longSounds: false, doubleSounds: false, difficultSounds: false };
+      if (legacyProfile || ['personal', 'sounds'].includes(saved.readingProfile)) {
+        migrated.readingProfile = 'navigator';
+        if (legacyProfile) {
+          migrated.showSyllables = saved.readingMode !== 'sounds' &&
+            (typeof saved.showSyllables === 'boolean' ? saved.showSyllables : true);
+        } else if (saved.readingProfile === 'sounds') {
+          migrated.showSyllables = false;
         }
       }
       if (migrated.theme === 'geel') migrated.theme = 'creme';
@@ -381,13 +310,7 @@ document.addEventListener('DOMContentLoaded', () => {
         theme: old.darkMode === true ? 'donker' : 'creme',
         showSyllables: typeof old.showSyllables === 'boolean' ? old.showSyllables : true,
         colorSyllables: typeof old.colorSyllables === 'boolean' ? old.colorSyllables : true,
-        readingProfile: 'personal',
-        help: {
-          ...DEFAULT_PROFILE.help,
-          longSounds: false,
-          doubleSounds: false,
-          difficultSounds: false
-        }
+        readingProfile: 'navigator'
       };
       applyProfile(migrated, true);
       saveProfile();
@@ -464,15 +387,6 @@ document.addEventListener('DOMContentLoaded', () => {
       const next = buttons[nextIndex];
       next.focus();
       next.click();
-    });
-  });
-  Object.entries(helpControls).forEach(([key, control]) => {
-    control.addEventListener('change', () => {
-      if (['longSounds', 'doubleSounds', 'difficultSounds'].includes(key)) {
-        toggleShowSyllables.checked = false;
-      }
-      setReadingProfile(readingProfile);
-      saveProfile();
     });
   });
 
@@ -785,13 +699,6 @@ document.addEventListener('DOMContentLoaded', () => {
   function formatTextWithSounds(text) {
     const groups = splitDutchSounds(text).map(group => {
       if (!group.color) return escapeHtml(group.text);
-      if (readingProfile === 'personal') {
-        const enabled = (group.color === 'yellow' && helpControls.longSounds.checked) ||
-          (group.color === 'orange' && helpControls.doubleSounds.checked) ||
-          ((group.color === 'white' || (group.color === 'blue' && group.text.length > 1)) &&
-            helpControls.difficultSounds.checked);
-        if (!enabled) return escapeHtml(group.text);
-      }
       const content = group.marking === 'dots'
         ? Array.from(group.text).map(letter => `<span class="sound-letter">${escapeHtml(letter)}</span>`).join('')
         : escapeHtml(group.text);
@@ -830,7 +737,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function focusReadingPart(element) {
     clearReadingFocus();
-    if (!positionEnabled()) return;
     if (element.matches('.word-group')) {
       element.classList.add('active-word');
       element.setAttribute('aria-pressed', 'true');
@@ -884,8 +790,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     outputActions.style.display = 'flex';
-    btnReadAll.hidden = !speechEnabled();
-    focusTip.style.display = readingLayout === 'blocks' && positionEnabled() ? 'block' : 'none';
+    focusTip.style.display = readingLayout === 'blocks' ? 'block' : 'none';
 
     if (readingLayout === 'continuous') {
       const reading = document.createElement('div');
@@ -923,7 +828,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const actions = document.createElement('div');
       actions.className = 'blokje-actions';
 
-      if ('speechSynthesis' in window && speechEnabled()) {
+      if ('speechSynthesis' in window) {
         const speakBtn = document.createElement('button');
         speakBtn.type = 'button';
         speakBtn.className = 'btn-speak-block';
@@ -951,7 +856,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
       // Klik/Enter actie: Focus-highlight modus (leeslampje)
       function toggleFocus() {
-        if (!positionEnabled()) return;
         const isCurrentlyActive = article.classList.contains('active-focus');
         if (!isCurrentlyActive) {
           focusReadingPart(article);
@@ -1034,13 +938,8 @@ Op een dag vond Pip een geheimzinnig kaartje op de grond. Er stond op: 'De schat
     textInput.value = '';
     updateCounter();
     renderBlocks([]);
-    hideSourceInfo();
     setUploadState('idle');
     hideUploadAlert();
-    setWebState('idle');
-    hideWebAlert();
-    if (webUrlInput) webUrlInput.value = '';
-    if (btnClearUrl) btnClearUrl.style.display = 'none';
     showToast('Tekst gewist. 🗑️');
     textInput.focus();
   });
@@ -1428,14 +1327,6 @@ Op een dag vond Pip een geheimzinnig kaartje op de grond. Er stond op: 'De schat
     doc: {
       btn: tabBtnDoc,
       panel: importPanelDoc
-    },
-    web: {
-      btn: tabBtnWeb,
-      panel: importPanelWeb
-    },
-    bookmarklet: {
-      btn: tabBtnBookmarklet,
-      panel: importPanelBookmarklet
     }
   };
 
@@ -1454,11 +1345,10 @@ Op een dag vond Pip een geheimzinnig kaartje op de grond. Er stond op: 'De schat
 
   /**
    * Selecteert een bron. De huidige bron kan niet worden dichtgeklapt.
-   * @param {'text'|'doc'|'web'|'bookmarklet'|'none'} targetSection
-   * @param {boolean} [forceOpen=false] Behouden voor bestaande API-aanroepen.
+   * @param {'text'|'doc'} targetSection
    * @param {boolean} [save=true]
    */
-  function toggleImportSection(targetSection, forceOpen = false, save = true) {
+  function toggleImportSection(targetSection, save = true) {
     const nextActive = Object.hasOwn(SECTION_CONFIG, targetSection) ? targetSection : 'text';
 
     // Pas toe op alle secties (slechts één geopend houden)
@@ -1488,15 +1378,8 @@ Op een dag vond Pip een geheimzinnig kaartje op de grond. Er stond op: 'De schat
     return nextActive;
   }
 
-  /**
-   * Alias voor compatibiliteit met bestaande code, testen en extensie-koppelingen.
-   */
-  function switchImportTab(targetTab) {
-    toggleImportSection(targetTab, true, true);
-  }
-
   Object.entries(SECTION_CONFIG).forEach(([key, cfg]) => {
-    cfg.btn.addEventListener('click', () => switchImportTab(key));
+    cfg.btn.addEventListener('click', () => toggleImportSection(key));
   });
 
   /**
@@ -1504,742 +1387,18 @@ Op een dag vond Pip een geheimzinnig kaartje op de grond. Er stond op: 'De schat
    * De oude accordeonwaarde 'none' wordt vertaald naar tekst plakken.
    */
   function loadImportSectionState() {
+    let saved;
     try {
-      const saved = localStorage.getItem(IMPORT_SECTION_KEY);
-      if (saved && Object.hasOwn(SECTION_CONFIG, saved)) {
-        toggleImportSection(saved, true, false);
-      } else {
-        toggleImportSection('text', true, false);
-      }
+      saved = localStorage.getItem(IMPORT_SECTION_KEY);
     } catch (err) {
       console.warn('Kon actieve importbron niet laden uit localStorage:', err);
-      toggleImportSection('text', true, false);
+      toggleImportSection('text', false);
+      return;
     }
+    toggleImportSection(saved && Object.hasOwn(SECTION_CONFIG, saved) ? saved : 'text');
   }
 
   loadImportSectionState();
-
-  // --- 10. Webpagina Processor & Import ---
-  /**
-   * Modulaire webpagina processor voor het ophalen en extraheren van tekst uit webpagina's.
-   * - 100% lokaal in de browser, geen backend, geen betaalde diensten.
-   * - Wikipedia: gebruikt de officiële publieke Wikimedia REST API met CORS-ondersteuning.
-   * - Algemeen: probeert browser fetch en schoont HTML op met een intelligente DOM parser.
-   * - Foutafhandeling: toont de vereiste melding wanneer de browser cross-origin toegang weigert.
-   * - Extensie-klaar: communiceert direct met toekomstige browserextensies via window.postMessage en CustomEvents.
-   */
-  const WebpageProcessor = {
-    /**
-     * Valideert en normaliseert een ingevoerde link.
-     */
-    normalizeUrl(rawUrl) {
-      if (!rawUrl || !rawUrl.trim()) {
-        throw new Error('Voer eerst een geldige link (URL) in.');
-      }
-      let urlStr = rawUrl.trim();
-      if (!/^https?:\/\//i.test(urlStr)) {
-        urlStr = 'https://' + urlStr;
-      }
-      try {
-        const parsed = new URL(urlStr);
-        if (!parsed.hostname || !parsed.hostname.includes('.')) {
-          throw new Error('Ongeldige domeinnaam');
-        }
-        return parsed.href;
-      } catch (e) {
-        throw new Error('Dit internetadres lijkt niet te kloppen. Controleer de link en probeer het opnieuw.');
-      }
-    },
-
-    /**
-     * Haalt een webpagina op en extraheert de hoofdtekst.
-     * @param {string} rawUrl
-     * @returns {Promise<{ title: string, text: string, wordCount: number, url: string }>}
-     */
-    async fetchAndExtract(rawUrl) {
-      const url = this.normalizeUrl(rawUrl);
-
-      // 1. Toekomstige Browserextensie Interceptie
-      // Wanneer een browserextensie geïnstalleerd is, kan deze CORS-beperkingen omzeilen.
-      if (window.__LEESBLOKJES_EXTENSION__ && typeof window.__LEESBLOKJES_EXTENSION__.fetchPage === 'function') {
-        try {
-          const extResult = await window.__LEESBLOKJES_EXTENSION__.fetchPage(url);
-          if (extResult && extResult.text) {
-            const wordCount = extResult.text.split(/\s+/).filter(Boolean).length;
-            return {
-              title: extResult.title || 'Webpagina',
-              text: extResult.text,
-              wordCount,
-              url
-            };
-          }
-        } catch (extErr) {
-          console.warn('Browserextensie ophalen mislukt, val terug op browser-fetch:', extErr);
-        }
-      }
-
-      // 2. Wikipedia: speciale directe afhandeling via de officiële Wikimedia REST API met CORS-ondersteuning
-      const wikiMatch = url.match(/https?:\/\/([a-z0-9_-]+)\.wikipedia\.org\/wiki\/([^#?]+)/i);
-      if (wikiMatch) {
-        return await this.fetchWikipedia(wikiMatch[1], decodeURIComponent(wikiMatch[2]), url);
-      }
-
-      // 3. Directe Browser Fetch (werkt voor sites met open CORS, educatieve platforms, en lokale servers)
-      try {
-        const response = await fetch(url, {
-          method: 'GET',
-          headers: {
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
-          }
-        });
-
-        if (!response.ok) {
-          throw new Error(`HTTP fout: ${response.status}`);
-        }
-
-        const html = await response.text();
-        const extracted = this.extractMainContent(html, url);
-
-        if (!extracted.text || extracted.wordCount < 10) {
-          throw new Error('Geen bruikbare hoofdtekst gevonden op deze webpagina.');
-        }
-
-        return {
-          title: extracted.title,
-          text: extracted.text,
-          wordCount: extracted.wordCount,
-          url
-        };
-      } catch (err) {
-        // Indien toegang door CORS geweigerd wordt (zoals standaard bij nieuwssites zonder extensie)
-        console.warn('Webpagina fetch geblokkeerd of niet direct toegankelijk:', err);
-        const accessError = new Error(
-          'Deze website laat geen directe toegang toe.\nKopieer de tekst handmatig of gebruik in een latere versie de browserextensie.'
-        );
-        accessError.isDirectAccessBlocked = true;
-        throw accessError;
-      }
-    },
-
-    /**
-     * Haalt een Wikipedia-artikel op via de officiële MediaWiki REST API (volledig CORS-open).
-     */
-    async fetchWikipedia(lang, title, originalUrl) {
-      const cleanTitle = title.replace(/_/g, ' ');
-      const apiUrl = `https://${lang}.wikipedia.org/api/rest_v1/page/html/${encodeURIComponent(title.replace(/ /g, '_'))}`;
-
-      try {
-        const res = await fetch(apiUrl);
-        if (!res.ok) {
-          throw new Error(`Wikipedia artikel niet gevonden (status: ${res.status}).`);
-        }
-        const html = await res.text();
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(html, 'text/html');
-
-        // Verwijder overbodige elementen (tabellen, referenties, bewerkingslinks, categoriekaders)
-        const toRemove = doc.querySelectorAll('style, script, link, .mw-ref, .mw-editsection, table, figure, .navbox, .infobox, .hatnote, .ambox, .metadata');
-        toRemove.forEach(el => el.remove());
-
-        const elements = doc.querySelectorAll('p, h2, h3');
-        const paragraphs = [];
-
-        elements.forEach(el => {
-          const text = el.textContent.replace(/\s+/g, ' ').trim();
-          if (!text) return;
-          const tag = el.tagName.toLowerCase();
-          if (tag === 'h2' || tag === 'h3') {
-            // Sla typische Wikipedia slotsecties over
-            if (/^(zie ook|bronnen|referenties|literatuur|externe links|noten|voetnoten|bibliografie)/i.test(text)) {
-              return;
-            }
-            paragraphs.push(`\n### ${text}\n`);
-          } else if (text.length > 20) {
-            paragraphs.push(text);
-          }
-        });
-
-        const fullText = paragraphs.join('\n\n').replace(/\n{3,}/g, '\n\n').trim();
-        const words = fullText.split(/\s+/).filter(Boolean).length;
-
-        if (words < 10) {
-          throw new Error('Dit Wikipedia-artikel bevat te weinig tekst.');
-        }
-
-        return {
-          title: cleanTitle + ' (Wikipedia)',
-          text: fullText,
-          wordCount: words,
-          url: originalUrl
-        };
-      } catch (err) {
-        console.warn('Wikipedia ophalen mislukt:', err);
-        throw new Error(
-          'Deze website laat geen directe toegang toe.\nKopieer de tekst handmatig of gebruik in een latere versie de browserextensie.'
-        );
-      }
-    },
-
-    /**
-     * Extraheert de hoofdtekst uit HTML met behulp van DOMParser.
-     */
-    extractMainContent(html, url) {
-      const parser = new DOMParser();
-      const doc = parser.parseFromString(html, 'text/html');
-
-      // Verwijder storende niet-content elementen
-      const removeSelectors = [
-        'script', 'style', 'noscript', 'iframe', 'svg', 'canvas',
-        'nav', 'header', 'footer', 'aside', 'form', 'button', 'dialog',
-        '[role="navigation"]', '[role="banner"]', '[role="contentinfo"]', '[role="complementary"]',
-        '.nav', '.navbar', '.menu', '.sidebar', '.footer', '.advertisement', '.ad',
-        '.social-share', '.social-buttons', '.share-buttons', '.cookie-banner', '.cookie-notice',
-        '.comments', '#comments', '.related-articles', '.related-posts'
-      ];
-      removeSelectors.forEach(sel => {
-        doc.querySelectorAll(sel).forEach(el => el.remove());
-      });
-
-      // Paginatitel achterhalen
-      let pageTitle = '';
-      const h1 = doc.querySelector('h1');
-      if (h1 && h1.textContent.trim()) {
-        pageTitle = h1.textContent.trim();
-      } else if (doc.title) {
-        pageTitle = doc.title.split(/[-–|]/)[0].trim();
-      }
-
-      // Zoek naar hoofdcontent containers (geschikt voor nieuws & educatieve artikelen)
-      const contentSelectors = [
-        'article',
-        '[itemprop="articleBody"]',
-        '.article-body',
-        '.article__body',
-        '.article-content',
-        '.post-content',
-        '.entry-content',
-        'main',
-        '[role="main"]',
-        '.content',
-        '#content'
-      ];
-
-      let container = null;
-      for (const sel of contentSelectors) {
-        const el = doc.querySelector(sel);
-        if (el && el.textContent.trim().length > 100) {
-          container = el;
-          break;
-        }
-      }
-      if (!container) container = doc.body;
-
-      const elements = container.querySelectorAll('h1, h2, h3, p, li, blockquote');
-      const paragraphs = [];
-
-      elements.forEach(el => {
-        const text = el.textContent.replace(/\s+/g, ' ').trim();
-        if (!text) return;
-        const tag = el.tagName.toLowerCase();
-        if (tag.startsWith('h')) {
-          if (text.length >= 3 && text.length <= 120) {
-            paragraphs.push(text);
-          }
-        } else if (tag === 'li') {
-          if (text.length >= 20) {
-            paragraphs.push('• ' + text);
-          }
-        } else {
-          if (text.length >= 20) {
-            paragraphs.push(text);
-          }
-        }
-      });
-
-      let fullText = paragraphs.join('\n\n').trim();
-      if (!fullText || fullText.split(/\s+/).length < 20) {
-        fullText = (container.innerText || container.textContent || '')
-          .replace(/\r\n/g, '\n')
-          .replace(/\r/g, '\n')
-          .replace(/[^\S\n]+/g, ' ')
-          .replace(/\n{3,}/g, '\n\n')
-          .trim();
-      }
-
-      const wordCount = fullText.split(/\s+/).filter(Boolean).length;
-
-      return {
-        title: pageTitle || 'Webpagina',
-        text: fullText,
-        wordCount
-      };
-    }
-  };
-
-  // Web Import UI State Management
-  function setWebState(state, data = {}) {
-    if (!webProcessing || !webSuccess) return;
-
-    if (state === 'idle') {
-      webProcessing.style.display = 'none';
-      webSuccess.style.display = 'none';
-    } else if (state === 'processing') {
-      webProcessing.style.display = 'flex';
-      webSuccess.style.display = 'none';
-      hideWebAlert();
-      if (webProcessingTitle) {
-        webProcessingTitle.textContent = data.title || 'Bezig met pagina ophalen...';
-      }
-    } else if (state === 'success') {
-      webProcessing.style.display = 'none';
-      webSuccess.style.display = 'flex';
-      hideWebAlert();
-      if (webSuccessTitle) webSuccessTitle.textContent = data.title || 'Webpagina';
-      if (webWordCount) {
-        const count = data.wordCount || 0;
-        webWordCount.textContent = `${count} ${count === 1 ? 'woord' : 'woorden'} gevonden`;
-      }
-    }
-  }
-
-  function showWebAlert(message) {
-    if (!webAlert || !webAlertText) return;
-    webAlertText.textContent = message;
-    webAlert.style.display = 'flex';
-  }
-
-  function hideWebAlert() {
-    if (!webAlert || !webAlertText) return;
-    webAlert.style.display = 'none';
-    webAlertText.textContent = '';
-  }
-
-  /**
-   * Verwerkt het ophalen van een webpagina:
-   * 1. Valideert URL
-   * 2. Toont voortgangsindicator
-   * 3. Haalt pagina op via WebpageProcessor
-   * 4. Indien succesvol: plaatst tekst in tekstvak en voert direct LeesBlokjes verwerking uit
-   * 5. Indien niet succesvol: toont de vereiste foutmelding
-   */
-  async function handleWebImport(rawUrl) {
-    const url = (rawUrl || (webUrlInput ? webUrlInput.value : '')).trim();
-
-    hideWebAlert();
-
-    if (!url) {
-      showWebAlert('Voer eerst een link (URL) in van een webpagina.');
-      if (webUrlInput) webUrlInput.focus();
-      return;
-    }
-
-    setWebState('processing', {
-      title: 'Bezig met webpagina ophalen...'
-    });
-
-    try {
-      const result = await WebpageProcessor.fetchAndExtract(url);
-
-      // Succesvolle extractie
-      setWebState('success', {
-        title: result.title,
-        wordCount: result.wordCount
-      });
-
-      // Plaats de tekst in het invoervak
-      textInput.value = result.text;
-      updateCounter();
-
-      // Pas direct de bestaande LeesBlokjes verwerking toe
-      const blocks = splitIntoReadingBlocks(result.text);
-      renderBlocks(blocks, true, result.text);
-
-      // Toon bronvermelding boven de uitvoer
-      displaySourceInfo(result.title, result.url);
-
-      const outputDescription = readingLayout === 'continuous' ? 'doorlopende tekst' : `${blocks.length} leesblokjes`;
-      showToast(`Webpagina succesvol geladen! ${result.wordCount} woorden omgezet naar ${outputDescription}. 🌍✨`);
-    } catch (err) {
-      console.warn('Web import fout:', err);
-      setWebState('idle');
-
-      // Toon exact de vereiste foutmelding
-      const message = err && err.message
-        ? err.message
-        : 'Deze website laat geen directe toegang toe.\nKopieer de tekst handmatig of gebruik in een latere versie de browserextensie.';
-
-      showWebAlert(message);
-      showToast('Deze website laat geen directe toegang toe. ⚠️');
-    }
-  }
-
-  // Event Listeners voor Web Import
-  if (btnFetchWebpage) {
-    btnFetchWebpage.addEventListener('click', () => {
-      handleWebImport(webUrlInput ? webUrlInput.value : '');
-    });
-  }
-
-  if (webUrlInput) {
-    webUrlInput.addEventListener('input', () => {
-      if (btnClearUrl) {
-        btnClearUrl.style.display = webUrlInput.value ? 'inline-block' : 'none';
-      }
-      hideWebAlert();
-    });
-
-    webUrlInput.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        handleWebImport(webUrlInput.value);
-      }
-    });
-  }
-
-  if (btnClearUrl) {
-    btnClearUrl.addEventListener('click', () => {
-      if (webUrlInput) {
-        webUrlInput.value = '';
-        webUrlInput.focus();
-      }
-      btnClearUrl.style.display = 'none';
-      setWebState('idle');
-      hideWebAlert();
-    });
-  }
-
-  if (btnRemoveWeb) {
-    btnRemoveWeb.addEventListener('click', () => {
-      setWebState('idle');
-      hideWebAlert();
-      if (webUrlInput) {
-        webUrlInput.value = '';
-        webUrlInput.focus();
-      }
-      if (btnClearUrl) btnClearUrl.style.display = 'none';
-    });
-  }
-
-  if (btnCloseWebAlert) {
-    btnCloseWebAlert.addEventListener('click', () => {
-      hideWebAlert();
-    });
-  }
-
-  // Klikken op de Wikipedia-voorbeelden
-  if (webSuggestions) {
-    webSuggestions.addEventListener('click', (e) => {
-      const chip = e.target.closest('.btn-chip');
-      if (chip && chip.dataset.url) {
-        const url = chip.dataset.url;
-        if (webUrlInput) {
-          webUrlInput.value = url;
-          if (btnClearUrl) btnClearUrl.style.display = 'inline-block';
-        }
-        handleWebImport(url);
-      }
-    });
-  }
-
-  // --- 11. Leesmodus: Bronvermelding & Website Herkenning ---
-  function extractWebsiteName(url, title) {
-    if (url) {
-      try {
-        const parsed = new URL(url);
-        const host = parsed.hostname.toLowerCase().replace(/^www\./, '');
-        if (host.includes('wikipedia.org')) return 'Wikipedia';
-        if (host.includes('jeugdjournaal.nl')) return 'NOS Jeugdjournaal';
-        if (host.includes('nu.nl')) return 'Nu.nl';
-        if (host.includes('schooltv.nl')) return 'Schooltv';
-        if (host.includes('wikikids.nl')) return 'WikiKids';
-        if (host.includes('squla.nl')) return 'Squla';
-        return host.charAt(0).toUpperCase() + host.slice(1);
-      } catch (e) {
-        // Ongeldige URL, ga door naar titel
-      }
-    }
-    if (title && title.trim()) {
-      const parts = title.trim().split(/[|\-–—]/);
-      if (parts.length > 1) {
-        return parts[parts.length - 1].trim();
-      }
-      return title.trim();
-    }
-    return 'Webpagina';
-  }
-
-  function displaySourceInfo(title, url) {
-    if (!sourceBanner) return;
-
-    const hasTitle = Boolean(title && title.trim());
-    const hasUrl = Boolean(url && url.trim());
-
-    if (!hasTitle && !hasUrl) {
-      hideSourceInfo();
-      return;
-    }
-
-    const siteName = extractWebsiteName(url, title);
-    if (sourceWebsiteName) {
-      sourceWebsiteName.textContent = siteName;
-    }
-
-    if (sourceTitleDisplay) {
-      sourceTitleDisplay.textContent = hasTitle ? title.trim() : siteName;
-    }
-
-    if (sourceUrlDisplay) {
-      if (hasUrl) {
-        const cleanUrl = url.trim();
-        sourceUrlDisplay.textContent = cleanUrl;
-        sourceUrlDisplay.href = cleanUrl;
-        sourceUrlDisplay.style.display = 'inline';
-      } else {
-        sourceUrlDisplay.textContent = '-';
-        sourceUrlDisplay.removeAttribute('href');
-      }
-    }
-
-    sourceBanner.style.display = 'block';
-  }
-
-  function hideSourceInfo() {
-    if (sourceBanner) {
-      sourceBanner.style.display = 'none';
-    }
-  }
-
-  if (btnCloseSource) {
-    btnCloseSource.addEventListener('click', () => {
-      hideSourceInfo();
-    });
-  }
-
-  // --- 12. Universele Importfunctie (Bookmarklet, Browserextensies & Externe Koppelingen) ---
-  /**
-   * Universele importfunctie voor tekst van externe websites.
-   * Kan direct aangeroepen worden door:
-   * - De LeesBlokjes Bookmarklet (?title=, ?url=, ?text=)
-   * - Chrome extensie
-   * - Edge extensie
-   * - Firefox extensie
-   * 
-   * @param {string|object} textOrOptions Tekst als string of optie-object { text, title, url }
-   * @param {string} [maybeTitle] Optionele paginatitel
-   * @param {string} [maybeUrl] Optionele website-URL
-   */
-  function importText(textOrOptions, maybeTitle, maybeUrl) {
-    let text = '';
-    let title = '';
-    let url = '';
-
-    if (typeof textOrOptions === 'object' && textOrOptions !== null) {
-      text = textOrOptions.text || '';
-      title = textOrOptions.title || '';
-      url = textOrOptions.url || '';
-    } else {
-      text = textOrOptions || '';
-      title = maybeTitle || '';
-      url = maybeUrl || '';
-    }
-
-    // Foutafhandeling: wanneer de pagina geen leesbare tekst bevat
-    if (!text || !text.trim()) {
-      showWebAlert('Geen bruikbare tekst gevonden op deze pagina.');
-      showToast('Geen bruikbare tekst gevonden op deze pagina. ⚠️');
-      return {
-        success: false,
-        error: 'Geen bruikbare tekst gevonden op deze pagina.'
-      };
-    }
-
-    const cleanText = text.trim();
-
-    // 1. Vul automatisch het invoerveld
-    if (textInput) {
-      textInput.value = cleanText;
-      updateCounter();
-    }
-
-    // 2. Genereer direct LeesBlokjes
-    const blocks = splitIntoReadingBlocks(cleanText);
-    renderBlocks(blocks, true, cleanText);
-
-    // 3. Toon bronwebsite en metadata in Leesmodus
-    displaySourceInfo(title, url);
-
-    const siteName = extractWebsiteName(url, title);
-    const wordCount = cleanText.split(/\s+/).filter(Boolean).length;
-
-    // Werk de web import status bij
-    setWebState('success', {
-      title: title || siteName,
-      wordCount: wordCount
-    });
-
-    const outputDescription = readingLayout === 'continuous' ? 'doorlopende tekst' : `${blocks.length} blokjes`;
-    showToast(`Tekst van ${siteName} succesvol geladen! ${wordCount} woorden omgezet naar ${outputDescription}. ✨`);
-
-    return {
-      success: true,
-      text: cleanText,
-      title,
-      url,
-      websiteName: siteName,
-      wordCount,
-      blocksCount: blocks.length
-    };
-  }
-
-  // --- 13. LeesBlokjes Bookmarklet Generator (LeesBlokjes op websites) ---
-  /**
-   * Genereert een browser bookmarklet met JavaScript code die:
-   * 1. De zichtbare tekst van de huidige pagina verzamelt via document.body.innerText (of geselecteerde tekst).
-   * 2. De paginatitel verzamelt via document.title.
-   * 3. De website URL verzamelt via window.location.
-   * 4. Een nieuw LeesBlokjes venster opent met ?title=, ?url= en ?text=.
-   */
-  function generateBookmarkletCode() {
-    // Basis-URL van deze LeesBlokjes installatie (werkt op GitHub Pages, localhost en file)
-    const baseAppUrl = window.location.href.split('?')[0].split('#')[0];
-
-    const bookmarkletScript = "javascript:(function(){" +
-      "try{" +
-      "var title=document.title||'';" +
-      "var url=window.location.href||'';" +
-      "var sel=(window.getSelection&&window.getSelection().toString().trim())||'';" +
-      "var bodyText=document.body?(document.body.innerText||''):'';" +
-      "var text=sel||bodyText;" +
-      "if(!text||!text.trim()){" +
-      "alert('Geen bruikbare tekst gevonden op deze pagina.');" +
-      "return;" +
-      "}" +
-      "if(text.length>15000){text=text.substring(0,15000);}" +
-      "var base=" + JSON.stringify(baseAppUrl) + ";" +
-      "var sep=base.indexOf('?')===-1?'?':'&';" +
-      "var target=base+sep+'title='+encodeURIComponent(title)+'&url='+encodeURIComponent(url)+'&text='+encodeURIComponent(text);" +
-      "window.open(target,'_blank');" +
-      "}catch(err){" +
-      "alert('Geen bruikbare tekst gevonden op deze pagina.');" +
-      "}" +
-      "})();";
-
-    return {
-      code: bookmarkletScript,
-      appUrl: baseAppUrl
-    };
-  }
-
-  // Bookmarklet Knop Actie: "Maak LeesBlokjes Bookmarklet"
-  if (btnMakeBookmarklet) {
-    btnMakeBookmarklet.addEventListener('click', () => {
-      const { code } = generateBookmarkletCode();
-
-      if (bookmarkletLink) {
-        bookmarkletLink.href = code;
-      }
-
-      if (bookmarkletInstructionText) {
-        bookmarkletInstructionText.textContent = 'Sleep deze knop naar je bladwijzerbalk.';
-      }
-
-      if (bookmarkletResult) {
-        bookmarkletResult.style.display = 'flex';
-        bookmarkletResult.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-      }
-
-      showToast('Bladwijzer klaar! Sleep de knop naar je bladwijzerbalk. 🪄');
-    });
-  }
-
-  if (btnCopyBookmarklet) {
-    btnCopyBookmarklet.addEventListener('click', async () => {
-      const { code } = generateBookmarkletCode();
-      try {
-        await navigator.clipboard.writeText(code);
-        showToast('Bladwijzercode gekopieerd naar klembord! 📋');
-      } catch (err) {
-        showToast('Kon code niet automatisch kopiëren.');
-      }
-    });
-  }
-
-  if (btnGotoBookmarklet) {
-    btnGotoBookmarklet.addEventListener('click', () => {
-      switchImportTab('bookmarklet');
-      if (btnMakeBookmarklet) {
-        btnMakeBookmarklet.click();
-      }
-    });
-  }
-
-  // --- 14. Koppelingen met Browserextensies (postMessage & URL parameters) ---
-  // Luister naar berichten vanuit toekomstige browserextensies via window.postMessage
-  window.addEventListener('message', (event) => {
-    if (event.data && (
-      event.data.type === 'LEESBLOKJES_EXT_IMPORT' ||
-      event.data.type === 'LEESBLOKJES_IMPORT_WEBPAGE' ||
-      event.data.type === 'LEESBLOKJES_IMPORT_TEXT'
-    )) {
-      const { text, title, url } = event.data;
-      if (text) {
-        switchImportTab('web');
-        if (webUrlInput && url) webUrlInput.value = url;
-        importText({ text, title, url });
-      }
-    }
-  });
-
-  // Ondersteun URL query parameters (?title=... &url=... &text=...) voor Bookmarklet en extensies
-  function handleUrlQueryParams() {
-    try {
-      const urlParams = new URLSearchParams(window.location.search);
-      let queryText = urlParams.get('text');
-      let queryTitle = urlParams.get('title') || '';
-      let queryUrl = urlParams.get('url') || urlParams.get('import_url') || '';
-
-      // Fallback: controleer ook hash indien parameters via # doorgegeven zijn
-      if (queryText === null && window.location.hash) {
-        const hashParams = new URLSearchParams(window.location.hash.substring(1));
-        if (hashParams.has('text')) {
-          queryText = hashParams.get('text');
-          queryTitle = hashParams.get('title') || queryTitle;
-          queryUrl = hashParams.get('url') || queryUrl;
-        }
-      }
-
-      // 1. Text parameter aanwezig (van Bookmarklet of Browserextensie)
-      if (queryText !== null) {
-        switchImportTab('web');
-        if (webUrlInput && queryUrl) webUrlInput.value = queryUrl;
-
-        if (!queryText.trim()) {
-          showWebAlert('Geen bruikbare tekst gevonden op deze pagina.');
-          showToast('Geen bruikbare tekst gevonden op deze pagina. ⚠️');
-          return;
-        }
-
-        importText({
-          text: queryText,
-          title: queryTitle,
-          url: queryUrl
-        });
-        return;
-      }
-
-      // 2. Alleen URL parameter aanwezig (directe webpagina import)
-      if (queryUrl) {
-        switchImportTab('web');
-        if (webUrlInput) webUrlInput.value = queryUrl;
-        handleWebImport(queryUrl);
-      }
-    } catch (paramErr) {
-      console.warn('Fout bij het uitlezen van URL parameters:', paramErr);
-    }
-  }
-
-  // Verwerk eventuele URL parameters bij het openen van de pagina
-  handleUrlQueryParams();
 
   // --- 12. Kopiëren naar Klembord ---
   btnCopy.addEventListener('click', async () => {
@@ -2292,7 +1451,6 @@ Op een dag vond Pip een geheimzinnig kaartje op de grond. Er stond op: 'De schat
   btnStopAudio.addEventListener('click', stopSpeaking);
 
   function speakSingleBlock(text, buttonElement, blockElement) {
-    if (!speechEnabled()) return;
     if (!synth) {
       showToast('Voorlezen wordt helaas niet ondersteund door deze browser.');
       return;
@@ -2332,7 +1490,6 @@ Op een dag vond Pip een geheimzinnig kaartje op de grond. Er stond op: 'De schat
   }
 
   btnReadAll.addEventListener('click', () => {
-    if (!speechEnabled()) return;
     if (!synth) {
       showToast('Voorlezen wordt helaas niet ondersteund door deze browser.');
       return;
@@ -2413,18 +1570,10 @@ Op een dag vond Pip een geheimzinnig kaartje op de grond. Er stond op: 'De schat
   // Initialiseer woordenteller bij eventuele reeds aanwezige tekst
   updateCounter();
 
-  // Exporteer publieke API voor extensies (Chrome, Edge, Firefox), bookmarklet en tests
+  // Publieke API voor documentverwerking en tests.
   window.LeesBlokjes = {
     DocumentProcessor,
-    WebpageProcessor,
-    importText,
-    generateBookmarkletCode,
-    displaySourceInfo,
-    hideSourceInfo,
     handleFileUpload,
-    handleWebImport,
-    handleUrlQueryParams,
-    switchImportTab,
     toggleImportSection,
     getActiveImportSection,
     loadImportSectionState,

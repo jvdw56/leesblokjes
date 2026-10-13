@@ -48,7 +48,7 @@
           return color.slice(0, 3).map((value, index) => value * alpha + background[index] * (1 - alpha));
         }, [255, 255, 255]);
       }
-      async function loadApp(denyStorage = false) {
+      async function loadApp(denyStorage = false, query = '') {
         let markup;
         if (denyStorage) {
           const response = await fetch('../index.html');
@@ -75,7 +75,7 @@
           if (denyStorage) frame.srcdoc = markup;
           else {
             frame.removeAttribute('srcdoc');
-            frame.src = '../index.html';
+            frame.src = `../index.html${query}`;
           }
         });
       }
@@ -159,21 +159,28 @@
         let doc = app.document;
         const api = app.LeesBlokjes;
         const choose = mode => {
-          if (mode === 'syllables') {
-            doc.getElementById('toggle-show-syllables').checked = true;
-          }
-          doc.querySelector(`[data-reading-profile="${mode === 'syllables' ? 'personal' : mode === 'normal' ? 'focus' : 'sounds'}"]`).click();
+          doc.getElementById('toggle-show-syllables').checked = mode === 'syllables';
+          doc.querySelector(`[data-reading-profile="${mode === 'normal' ? 'focus' : 'navigator'}"]`).click();
           if (doc.getElementById('text-input').value.trim()) doc.getElementById('btn-convert').click();
         };
-        const isMode = (document, mode) =>
-          document.querySelector(`[data-reading-profile="${mode === 'syllables' ? 'personal' : 'sounds'}"]`).getAttribute('aria-checked') === 'true';
+        const isNavigator = document =>
+          document.querySelector('[data-reading-profile="navigator"]').getAttribute('aria-checked') === 'true';
         const content = () => doc.querySelector('.blokje-content');
         assert(doc.querySelector('[data-reading-profile="navigator"]').getAttribute('aria-checked') === 'true',
           'Klanknavigator is het standaardprofiel');
-        assert(doc.querySelectorAll('[data-reading-profile]').length === 4 &&
+        assert(doc.querySelectorAll('[data-reading-profile]').length === 2 &&
           !doc.querySelector('[data-reading-mode], .sound-guide, #btn-close-sidebar, #btn-toggle-sidebar') &&
           !doc.querySelector('.reading-profile-section details'),
-          'Vier permanente profielkaarten zonder oude knoppen, legenda of inklapbediening');
+          'Alleen twee permanente profielkaarten zonder oude knoppen, legenda of inklapbediening');
+        assert(JSON.stringify(Array.from(doc.querySelectorAll('[data-reading-profile]')).map(button => button.textContent.trim().replace(/\s*✓$/, ''))) ===
+          JSON.stringify(['Klanknavigator', 'Focuslezen']) &&
+          !doc.querySelector('[id^="help-"], #personal-options'),
+          'Leesprofielen en instellingen van de verwijderde ondersteuning bestaan niet meer');
+        assert(['WebpageProcessor', 'importText', 'generateBookmarkletCode', 'displaySourceInfo',
+          'hideSourceInfo', 'handleWebImport', 'handleUrlQueryParams', 'switchImportTab']
+          .every(key => !Object.hasOwn(api, key)) &&
+          !doc.querySelector('[id*="bookmarklet"], [id^="web-"], #import-panel-web, #source-banner'),
+          'Websitepanelen, bronvermelding en externe import-API zijn volledig verwijderd');
         assert(doc.querySelector('.app-title').textContent === 'LeesBlokjes™' &&
           !/F&L|Taal in Blokjes|Leeskaart en klankkleuren/.test(doc.body.textContent),
           'Interface gebruikt uitsluitend de eigen naam LeesBlokjes™ zonder methodenverwijzingen');
@@ -246,9 +253,9 @@
         doc.getElementById('btn-clear').click();
         assert(api.getActiveImportSection() === 'text', 'Tekst plakken is standaard open');
         assert(doc.querySelector('.input-card').firstElementChild.matches('.import-navigation') &&
-          doc.querySelectorAll('.import-navigation button').length === 4 &&
-          !doc.querySelector('.accordion-item'), 'Vier bronknoppen boven de invoer, zonder accordeons');
-        for (const source of ['doc', 'web', 'bookmarklet', 'text']) {
+          doc.querySelectorAll('.import-navigation button').length === 2 &&
+          !doc.querySelector('.accordion-item'), 'Twee bronknoppen boven de invoer, zonder lege ruimtes of accordeons');
+        for (const source of ['doc', 'text']) {
           doc.getElementById(`tab-btn-${source}`).click();
           const visible = doc.querySelectorAll('.import-panel:not([hidden])');
           assert(visible.length === 1 && visible[0].id === `import-panel-${source}` &&
@@ -260,29 +267,6 @@
           assert(api.getActiveImportSection() === source, `Herhaald klikken sluit ${source} niet`);
           assert(localStorage.getItem(keys[2]) === source, `Bronkeuze wordt opgeslagen: ${source}`);
         }
-        doc.getElementById('btn-make-bookmarklet').click();
-        const bookmarklet = api.generateBookmarkletCode();
-        assert(doc.getElementById('bookmarklet-result').style.display === 'flex' &&
-          doc.getElementById('bookmarklet-link').getAttribute('href') === bookmarklet.code &&
-          bookmarklet.code.startsWith('javascript:') && bookmarklet.code.includes('encodeURIComponent(text)'),
-          'Bookmarklet BETA genereert de bestaande tekstimportlink');
-        const queryText = 'Nederland en school.\n\nNieuws voor iedereen!';
-        app.history.replaceState(null, '', `?text=${encodeURIComponent(queryText)}&title=Regressie&url=https%3A%2F%2Fexample.org`);
-        api.handleUrlQueryParams();
-        assert(doc.getElementById('text-input').value === queryText &&
-          doc.querySelectorAll('.reading-unit').length === 2 &&
-          doc.getElementById('source-title-display').textContent === 'Regressie',
-          'Bookmarklet-queryimport behoudt tekst, alineas en bronvermelding');
-        app.history.replaceState(null, '', '../index.html');
-        doc.getElementById('btn-clear').click();
-        doc.getElementById('tab-btn-text').click();
-        assert(doc.querySelectorAll('.web-suggestions [data-url]').length === 2 &&
-          Array.from(doc.querySelectorAll('.web-suggestions [data-url]'))
-            .every(button => button.dataset.url.startsWith('https://nl.wikipedia.org/wiki/')) &&
-          !/Jeugdjournaal|Nu\.nl/.test(doc.getElementById('import-panel-web').textContent),
-          'Alleen Wikipedia-voorbeelden, geen geblokkeerde nieuwssites');
-        assert(doc.querySelector('#tab-btn-bookmarklet .badge-beta-tag').textContent === 'BETA',
-          'Websites behoudt de bestaande BETA-badge');
         const groups = [
           ['green', 'a e i o u'],
           ['yellow', 'aa ee oo uu'],
@@ -352,9 +336,6 @@
         doc.getElementById('btn-sample').click();
         assert(content().querySelector('.sound') && !content().querySelector('.syl'),
           'Voorbeeldverhaal gebruikt de actieve Klankmodus');
-        api.importText({ text: 'school schrijfboek nieuws leeuw vriendelijk ruimteschip', title: 'Test' });
-        assert(content().querySelectorAll('.sound-word').length === 6 && !content().querySelector('.syl'),
-          'Geimporteerde tekst gebruikt overal klankbouwstenen');
         const originalExtract = api.DocumentProcessor.extractText;
         try {
           api.DocumentProcessor.extractText = async () => ({
@@ -395,6 +376,37 @@
             doc.getElementById('upload-success').style.display === 'flex',
             `Bestandskeuze/drop-event voert echte documentimport uit: ${method}`);
         }
+        for (const mode of ['syllables', 'normal']) {
+          choose(mode);
+          for (const file of [createDocx(app, uploadText), createPdf(app, uploadText)]) {
+            await api.handleFileUpload(file);
+            assert(content().textContent === uploadText &&
+              (mode === 'syllables' ? content().querySelector('.syl') :
+                content().querySelector('.word-group[role="button"]') && !content().querySelector('.syl, .sound')),
+              `Echte ${file.name}-upload respecteert lettergreepblokken of Focuslezen: ${mode}`);
+          }
+        }
+        const beforeRejectedUpload = content().textContent;
+        const inputBeforeRejectedUpload = doc.getElementById('text-input').value;
+        await api.handleFileUpload(new app.File(['test'], 'niet-ondersteund.txt'));
+        assert(doc.getElementById('upload-alert').style.display === 'flex' &&
+          doc.getElementById('upload-alert-text').textContent.includes('Alleen Word-') &&
+          content().textContent === beforeRejectedUpload && doc.getElementById('text-input').value === inputBeforeRejectedUpload,
+          'Ongeldig bestandstype geeft een melding en behoudt de huidige tekst');
+        doc.getElementById('btn-close-alert').click();
+        assert(doc.getElementById('upload-alert').style.display === 'none', 'De documentmelding kan worden gesloten');
+        for (const file of [createDocx(app, ''), createPdf(app, '')]) {
+          await api.handleFileUpload(file);
+          assert(doc.getElementById('upload-alert').style.display === 'flex' &&
+            doc.getElementById('upload-alert-text').textContent.includes('OCR') &&
+            content().textContent === beforeRejectedUpload &&
+            doc.getElementById('upload-processing').style.display === 'none',
+            `Document zonder uitleesbare tekst behoudt bestaande OCR-melding en uitvoer: ${file.name}`);
+        }
+        await api.handleFileUpload(createDocx(app, uploadText));
+        assert(doc.getElementById('upload-alert').style.display === 'none' &&
+          doc.getElementById('upload-success').style.display === 'flex',
+          'Een geldige documentupload werkt opnieuw na een afgewezen of leeg bestand');
         doc.getElementById('btn-clear').click();
         choose('syllables');
         doc.getElementById('btn-reset-profile').click();
@@ -408,8 +420,8 @@
         assert(content().querySelector('img') === null, 'HTML uit invoer wordt niet uitgevoerd');
         assert(!doc.body.classList.contains('show-syllables') && !doc.body.classList.contains('color-syllables'),
           'Klankmodus is onafhankelijk van lettergreepkleuren');
-        assert(doc.getElementById('personal-options').hidden && !doc.querySelector('#sound-mode-info'),
-          'Alleen de instellingen van de actieve modus worden getoond');
+        assert(!doc.getElementById('reading-options').hidden && !doc.querySelector('#sound-mode-info'),
+          'Lettergreepinstellingen blijven zichtbaar onder Overige instellingen');
         assert(content().querySelectorAll('.sound-underline').length === 4,
           'Alle aai/ooi/oei-groepen hebben onderstreping');
         assert(content().querySelectorAll('.sound-dots').length === 6,
@@ -446,7 +458,8 @@
         const colorBefore = doc.getElementById('toggle-color-syllables').checked;
         choose('sounds');
         assert(content().querySelector('.sound') !== null, 'Klankmodus werkt met lettergreeptonen uitgeschakeld');
-        doc.querySelector('[data-reading-profile="personal"]').click();
+        doc.querySelector('[data-reading-profile="focus"]').click();
+        doc.querySelector('[data-reading-profile="navigator"]').click();
         assert(doc.getElementById('toggle-show-syllables').checked === showBefore &&
           doc.getElementById('toggle-color-syllables').checked === colorBefore,
           'Lettergreepvoorkeuren blijven bewaard tijdens wisselen');
@@ -454,7 +467,7 @@
         assert(JSON.parse(localStorage.getItem(keys[0])).readingMode === 'sounds', 'Keuze wordt opgeslagen in localStorage');
         app = await loadApp();
         doc = app.document;
-        assert(isMode(doc, 'sounds') &&
+        assert(isNavigator(doc) &&
           doc.body.classList.contains('sound-mode'), 'Klankmodus wordt hersteld na herladen');
         app.LeesBlokjes.renderBlocks(['meeuw']);
         assert(doc.querySelector('.sound-dots').textContent === 'eeuw', 'Nieuwe uitvoer gebruikt de herstelde modus');
@@ -463,16 +476,18 @@
           doc.querySelector('.blokje-content .sound'), 'Profiel herstellen schakelt bestaande uitvoer terug naar Klanknavigator');
         localStorage.setItem(keys[0], JSON.stringify({ showSyllables: false, colorSyllables: false, theme: 'groen' }));
         app = await loadApp();
-        assert(isMode(app.document, 'syllables') &&
+        assert(isNavigator(app.document) &&
           !app.document.getElementById('toggle-show-syllables').checked,
           'Oude profielen zonder leesmodus behouden lettergreepinstellingen');
         localStorage.removeItem(keys[0]);
         localStorage.setItem(keys[1], JSON.stringify({ showSyllables: false, colorSyllables: false }));
         app = await loadApp();
-        assert(isMode(app.document, 'syllables') &&
-          JSON.parse(localStorage.getItem(keys[0])).readingProfile === 'personal',
-          'Migratie van oude instellingen bewaart persoonlijke voorkeuren');
-        for (const source of ['doc', 'web', 'bookmarklet', 'text']) {
+        assert(isNavigator(app.document) &&
+          JSON.parse(localStorage.getItem(keys[0])).readingProfile === 'navigator' &&
+          !app.document.getElementById('toggle-show-syllables').checked &&
+          !app.document.getElementById('toggle-color-syllables').checked,
+          'Migratie van oude instellingen bewaart lettergreepvoorkeuren binnen Klanknavigator');
+        for (const source of ['doc', 'text']) {
           app.document.getElementById(`tab-btn-${source}`).click();
           app = await loadApp();
           assert(app.LeesBlokjes.getActiveImportSection() === source &&
@@ -485,29 +500,17 @@
         localStorage.setItem(keys[2], 'ongeldig');
         app = await loadApp();
         assert(app.LeesBlokjes.getActiveImportSection() === 'text', 'Onbekende opgeslagen bron opent tekst plakken');
-        const originalFetch = app.LeesBlokjes.WebpageProcessor.fetchAndExtract;
-        try {
-          app.LeesBlokjes.WebpageProcessor.fetchAndExtract = async url => ({
-            text: 'school nieuws leeuw', title: 'Dolfijnen (Wikipedia)', url, wordCount: 3
-          });
-          app.document.querySelector('[data-reading-profile="sounds"]').click();
-          app.document.querySelector('.web-suggestions [data-url]').click();
-          await new Promise(resolve => app.setTimeout(resolve, 0));
-          assert(app.document.getElementById('web-url-input').value === 'https://nl.wikipedia.org/wiki/Dolfijnen',
-            'Voorbeeldknop vult de juiste Wikipedia-link in');
-          assert(app.document.querySelectorAll('.blokje-content .sound-word').length === 3 &&
-            app.document.getElementById('web-success').style.display === 'flex',
-            'Webimport bouwt gekleurde klankuitvoer op en toont succes');
-          app.document.getElementById('tab-btn-text').click();
-          assert(app.document.getElementById('text-input').value === 'school nieuws leeuw',
-            'Bronwissel behoudt geimporteerde tekst');
-          app.document.getElementById('tab-btn-web').click();
-          assert(app.document.getElementById('web-success').style.display === 'flex',
-            'Bronwissel behoudt webimportstatus');
-        } finally {
-          app.LeesBlokjes.WebpageProcessor.fetchAndExtract = originalFetch;
+        for (const removedSource of ['web', 'bookmarklet']) {
+          localStorage.setItem(keys[2], removedSource);
+          localStorage.setItem(keys[3], removedSource);
+          app = await loadApp();
+          assert(app.LeesBlokjes.getActiveImportSection() === 'text' &&
+            localStorage.getItem(keys[2]) === 'text' && localStorage.getItem(keys[3]) === 'text',
+            `Verwijderde opgeslagen bron wordt blijvend tekst plakken: ${removedSource}`);
         }
         doc = app.document;
+        doc.getElementById('text-input').value = 'school nieuws leeuw';
+        doc.getElementById('btn-convert').click();
         const chooseLayout = layout => doc.querySelector(`[data-reading-layout="${layout}"]`).click();
         const setSpacing = value => {
           doc.getElementById('profile-word-spacing').value = value;
@@ -556,7 +559,7 @@
             doc.getElementById('text-input').value = mode === 'sounds' ? 'school school' : 'Nederland Nederland';
             choose(mode);
             const toggle = doc.getElementById('toggle-show-syllables');
-            toggle.checked = mode !== 'normal';
+            toggle.checked = mode === 'syllables';
             toggle.dispatchEvent(new app.Event('change'));
             setSpacing('0.8');
             const output = content();
@@ -724,7 +727,7 @@
           assert(doc.querySelector('.active-word').textContent === 'schrijfboek' &&
             doc.querySelectorAll('.active-word').length === 1,
             'Voorleeshulp volgt de woordpositie in Focuslezen');
-          doc.querySelector('[data-reading-profile="sounds"]').click();
+          doc.querySelector('[data-reading-profile="navigator"]').click();
           focusUtterance.onboundary({ name: 'word', charIndex: 0 });
           assert(!doc.querySelector('.active-word') && !speaking,
             'Profielwissel stopt audio en negeert oude woordpositie-events');
@@ -769,7 +772,7 @@
           doc.querySelector('[data-reading-layout="blocks"]').getAttribute('aria-pressed') === 'true',
           'Bestaande profielen krijgen standaard woordafstand en alineablokken');
         app.document.getElementById('text-input').value = requiredExamples.map(([word]) => word).join(' ');
-        app.document.querySelector('[data-reading-profile="sounds"]').click();
+        app.document.querySelector('[data-reading-profile="navigator"]').click();
         app.document.getElementById('btn-convert').click();
         app.document.getElementById('tab-btn-text').click();
         for (const width of [320, 390]) {
@@ -806,7 +809,7 @@
               doc.getElementById('text-input').value = 'aa aa\n\nschool schrijfboek nieuws leeuw vriendelijk ruimteschip.';
               choose(mode);
               const toggle = doc.getElementById('toggle-show-syllables');
-              toggle.checked = mode !== 'normal';
+              toggle.checked = mode === 'syllables';
               toggle.dispatchEvent(new app.Event('change'));
               const output = doc.getElementById('output-area');
               const words = Array.from(output.querySelectorAll('.word-group'));
@@ -861,33 +864,25 @@
         assert(JSON.stringify(Array.from(doc.querySelectorAll('.theme-name')).map(item => item.textContent)) ===
           JSON.stringify(['Crème', 'Warmblauw', 'Warmgroen', 'Donker']),
           'Alleen de vier gevraagde warme achtergrondthemas zijn beschikbaar');
-        for (const profile of ['navigator', 'focus', 'personal', 'sounds']) {
+        for (const profile of ['navigator', 'focus']) {
           selectProfile(profile);
           assert(doc.querySelectorAll('[data-reading-profile][aria-checked="true"]').length === 1 &&
             JSON.parse(localStorage.getItem(keys[0])).readingProfile === profile &&
-            doc.getElementById('personal-options').hidden === (profile !== 'personal'),
+            !doc.getElementById('reading-options').hidden,
             `Exclusieve profielkeuze, ondersteuning en opslag: ${profile}`);
           assert(outputText() === profileText && doc.getElementById('text-input').value === 'Nog niet verwerkte tekst',
             `Profielwissel behoudt verwerkte uitvoer en onverwerkte invoer: ${profile}`);
         }
-        selectProfile('navigator');
-        const navigatorGroups = Array.from(doc.querySelectorAll('.sound')).map(group =>
-          [group.textContent, group.className, app.getComputedStyle(group).backgroundColor]);
-        selectProfile('sounds');
-        assert(JSON.stringify(navigatorGroups) === JSON.stringify(Array.from(doc.querySelectorAll('.sound')).map(group =>
-          [group.textContent, group.className, app.getComputedStyle(group).backgroundColor])),
-          'Klanknavigator en Klanken gebruiken exact dezelfde bestaande klankgroepen, kleuren en markeringen');
         for (const [width, height] of [[1920, 1080], [1366, 768], [390, 844]]) {
           frame.style.width = `${width}px`;
           frame.style.height = `${height}px`;
           await new Promise(resolve => app.requestAnimationFrame(resolve));
-          for (const profile of ['navigator', 'focus', 'personal', 'sounds']) {
+          for (const profile of ['navigator', 'focus']) {
             selectProfile(profile);
             const cards = Array.from(doc.querySelectorAll('.reading-profile-choice')).map(card => card.getBoundingClientRect());
-            assert(cards[0].top === cards[1].top && cards[2].top === cards[3].top &&
-              cards[2].top > cards[0].top && cards[1].left > cards[0].left &&
+            assert(cards.length === 2 && cards[0].top === cards[1].top && cards[1].left > cards[0].left &&
               cards.every(card => card.width > 0) && doc.documentElement.scrollWidth <= app.innerWidth,
-              `Permanent 2x2-profielraster zonder pagina-overflow: ${profile} op ${width}x${height}`);
+              `Een compacte profielrij zonder lege tweede rij of pagina-overflow: ${profile} op ${width}x${height}`);
             assert(Array.from(doc.querySelectorAll('.theme-name')).every(name =>
               name.getBoundingClientRect().width <= name.parentElement.getBoundingClientRect().width + 0.5),
               `Alle achtergrondnamen zijn volledig leesbaar: ${profile} op ${width}x${height}`);
@@ -914,67 +909,7 @@
           assert(doc.querySelectorAll('.active-word').length === 1,
             `Herhaald wisselen voegt geen dubbele woordfocuslisteners toe: ${layout}`);
         }
-        selectProfile('personal');
-        const showSyllables = doc.getElementById('toggle-show-syllables');
-        showSyllables.checked = false;
-        showSyllables.dispatchEvent(new app.Event('change'));
-        const help = (id, checked) => {
-          doc.getElementById(id).checked = checked;
-          doc.getElementById(id).dispatchEvent(new app.Event('change'));
-        };
-        for (const [id, selector] of [['help-long', '.sound-yellow'], ['help-double', '.sound-orange'],
-          ['help-difficult', '.sound-white, .sound-blue']]) {
-          help(id, true);
-          assert(doc.querySelector(selector), `Persoonlijke klankmarkering verschijnt: ${id}`);
-          help(id, false);
-          assert(!doc.querySelector(selector) && outputText() === profileText,
-            `Persoonlijke klankmarkering verdwijnt zonder tekstverlies: ${id}`);
-        }
-        assert(!doc.querySelector('.blokje-content .sound'),
-          'Alle klankmarkeringen uit levert volledige gewone tekst op');
-        showSyllables.checked = true;
-        showSyllables.dispatchEvent(new app.Event('change'));
-        assert(doc.querySelector('.blokje-content .syl') &&
-          ['help-long', 'help-double', 'help-difficult'].every(id => !doc.getElementById(id).disabled),
-          'Bestaande lettergrepen blijven beschikbaar en klankschakelaars blijven bedienbaar');
-        help('help-long', true);
-        assert(!doc.querySelector('.blokje-content .syl') && doc.querySelector('.sound-yellow') &&
-          !showSyllables.checked,
-          'Klankhulp schakelt direct van lettergrepen naar de geselecteerde klankmarkeringen');
-        help('help-long', false);
-        assert(!doc.querySelector('.blokje-content .syl, .blokje-content .sound') &&
-          ['help-long', 'help-double', 'help-difficult'].every(id => !doc.getElementById(id).disabled),
-          'Terugschakelen behoudt selectieve voorkeuren en activeert klankschakelaars');
-        chooseLayout('blocks');
-        help('help-position', false);
-        doc.querySelector('.lees-blokje').click();
-        assert(!doc.querySelector('.active-focus, .active-word, .word-group[role="button"]') &&
-          doc.getElementById('focus-tip').style.display === 'none',
-          'Leespositie uit verwijdert woordfocus, blokfocus en leeslamp-tip');
-        help('help-position', true);
-        doc.querySelector('.word-group').click();
-        assert(doc.querySelector('.active-word'), 'Persoonlijke leespositie is direct weer inschakelbaar');
-        help('help-speech', false);
-        assert(app.getComputedStyle(doc.getElementById('btn-read-all')).display === 'none' &&
-          !doc.querySelector('.btn-speak-block') && doc.getElementById('btn-copy').style.display !== 'none',
-          'Voorleeshulp uit verbergt alleen voorlezen, niet kopieren');
-        chooseLayout('continuous');
-        assert(doc.getElementById('btn-read-all').hidden,
-          'Voorleeshulp blijft uit bij doorlopende tekst');
-        help('help-speech', true);
-        chooseLayout('blocks');
-        assert(!doc.getElementById('btn-read-all').hidden && doc.querySelector('.btn-speak-block'),
-          'Voorleeshulp herstelt alle bestaande voorleesknoppen');
-        help('help-speech', false);
-        help('help-position', false);
-        selectProfile('navigator');
-        assert(!doc.getElementById('btn-read-all').hidden && doc.querySelectorAll('.sound').length === navigatorGroups.length,
-          'Persoonlijke opties veranderen Klanknavigator niet');
-        selectProfile('personal');
-        assert(!doc.getElementById('help-speech').checked && !doc.getElementById('help-position').checked &&
-          !doc.querySelector('.blokje-content .sound'),
-          'Persoonlijke ondersteuning blijft bewaard bij profielwisselingen');
-        for (const profile of ['navigator', 'focus', 'personal', 'sounds']) {
+        for (const profile of ['navigator', 'focus']) {
           selectProfile(profile);
           localStorage.setItem(keys[4], 'true');
           app = await loadApp();
@@ -984,13 +919,56 @@
             !doc.querySelector('#btn-toggle-sidebar'),
             `Profielherstel na verversen en oude ingeklapte status genegeerd: ${profile}`);
         }
-        selectProfile('personal');
-        assert(!doc.getElementById('help-speech').checked && !doc.getElementById('help-long').checked,
-          'Persoonlijke ondersteuning wordt hersteld na verversen');
+        for (const profile of ['personal', 'sounds']) {
+          for (const show of [true, false]) {
+            localStorage.setItem(keys[0], JSON.stringify({ readingProfile: profile,
+              font: 'Verdana', fontSize: 24, lineHeight: 2.1, wordSpacing: 1.8,
+              theme: 'donker', readingLayout: 'continuous', showSyllables: show, colorSyllables: false,
+              help: { longSounds: false, doubleSounds: false, difficultSounds: false, readingPosition: false, speech: false } }));
+            app = await loadApp();
+            doc = app.document;
+            const migrated = JSON.parse(localStorage.getItem(keys[0]));
+            assert(migrated.readingProfile === 'navigator' && !Object.hasOwn(migrated, 'help') &&
+              migrated.font === 'Verdana' && migrated.fontSize === 24 && migrated.lineHeight === 2.1 &&
+              migrated.wordSpacing === 1.8 && migrated.theme === 'donker' && migrated.readingLayout === 'continuous' &&
+              migrated.colorSyllables === false && migrated.showSyllables === (profile === 'personal' && show),
+              `Verwijderd profiel migreert naar Klanknavigator met behoud van kerninstellingen: ${profile}/${show}`);
+            app.LeesBlokjes.renderBlocks(['Nederland, school.']);
+            assert(doc.querySelector(profile === 'personal' && show ? '.syl' : '.sound') &&
+              !doc.getElementById('btn-read-all').hidden && outputText() === 'Nederland, school.',
+              'Migratie behoudt de bouwsteenweergave en herstelt altijd de voorleesfunctionaliteit');
+          }
+        }
+        selectProfile('navigator');
+        const syllables = doc.getElementById('toggle-show-syllables');
+        syllables.checked = true;
+        syllables.dispatchEvent(new app.Event('change'));
+        const colors = doc.getElementById('toggle-color-syllables');
+        colors.checked = true;
+        colors.dispatchEvent(new app.Event('change'));
+        const coloredSyllables = Array.from(doc.querySelectorAll('.syl')).map(syllable =>
+          [syllable.textContent, app.getComputedStyle(syllable).backgroundColor]);
+        assert(coloredSyllables.length > 1 && doc.body.classList.contains('color-syllables'),
+          'Lettergreepblokken en hun bestaande kleuren werken binnen Klanknavigator');
+        selectProfile('focus');
+        assert(!doc.querySelector('.syl, .sound') && syllables.checked && colors.checked,
+          'Focuslezen blijft gewone tekst en behoudt beide lettergreepvoorkeuren');
+        selectProfile('navigator');
+        assert(JSON.stringify(Array.from(doc.querySelectorAll('.syl')).map(syllable =>
+          [syllable.textContent, app.getComputedStyle(syllable).backgroundColor])) === JSON.stringify(coloredSyllables),
+          'Terugwisselen vanuit Focuslezen herstelt exact dezelfde gekleurde lettergreepblokken');
+        colors.click();
+        assert(doc.querySelector('.syl') && !doc.body.classList.contains('color-syllables'),
+          'Lettergreepkleuren kunnen worden uitgeschakeld zonder bouwstenen of tekst te verliezen');
+        app = await loadApp();
+        doc = app.document;
+        assert(doc.getElementById('toggle-show-syllables').checked &&
+          !doc.getElementById('toggle-color-syllables').checked && isNavigator(doc),
+          'Beide onafhankelijke lettergreepschakelaars worden hersteld na herladen');
         for (const [oldMode, oldTheme, expectedProfile, expectedTheme] of [
-          ['syllables', 'geel', 'personal', 'creme'],
-          ['sounds', 'blauw', 'sounds', 'blauw'],
-          ['syllables', 'groen', 'personal', 'groen']
+          ['syllables', 'geel', 'navigator', 'creme'],
+          ['sounds', 'blauw', 'navigator', 'blauw'],
+          ['syllables', 'groen', 'navigator', 'groen']
         ]) {
           localStorage.setItem(keys[0], JSON.stringify({ readingMode: oldMode, theme: oldTheme,
             font: 'Verdana', fontSize: 24, wordSpacing: 1.8, readingLayout: 'continuous',
@@ -1003,16 +981,16 @@
             migrated.readingLayout === 'continuous' && migrated.showSyllables === false,
             `Migratie van ${oldMode}/${oldTheme} behoudt overige instellingen`);
           app.LeesBlokjes.renderBlocks(['school nieuws']);
-          assert((!doc.querySelector('.blokje-content .sound')) === (oldMode === 'syllables') &&
+          assert(doc.querySelector('.blokje-content .sound') &&
             content().textContent === 'school nieuws',
-            `Migratie van ${oldMode}/${oldTheme} behoudt de oorspronkelijke tekstondersteuning`);
+            `Migratie van ${oldMode}/${oldTheme} gebruikt Klanknavigator wanneer lettergrepen uitstaan`);
         }
         localStorage.setItem(keys[0], JSON.stringify({ readingProfile: 'ongeldig', help: { speech: 'nee' } }));
         app = await loadApp();
         doc = app.document;
         assert(doc.body.dataset.activeProfile === 'navigator' &&
           JSON.parse(localStorage.getItem(keys[0])).readingProfile === 'navigator' &&
-          doc.getElementById('help-speech').checked,
+          !Object.hasOwn(JSON.parse(localStorage.getItem(keys[0])), 'help'),
           'Onbekende opgeslagen profielwaarden worden veilig naar standaardvoorkeuren genormaliseerd');
         localStorage.removeItem(keys[1]);
         for (const value of ['{', 'null', '[]', '"klanken"', '42', '{}',
@@ -1025,7 +1003,7 @@
           assert(state.readingProfile === 'navigator' && state.theme === 'creme' &&
             state.readingLayout === 'blocks' && state.font === 'Lexend' && state.fontSize === 20 &&
             state.lineHeight === 1.8 && state.wordSpacing === 1 && state.showSyllables === false &&
-            state.help.speech === true && doc.getElementById('profile-font').value === 'Lexend',
+            !Object.hasOwn(state, 'help') && doc.getElementById('profile-font').value === 'Lexend',
             `Ongeldige opslag herstelt veilige, consistente standaardinstellingen: ${value}`);
           doc.getElementById('text-input').value = 'school nieuws';
           doc.getElementById('btn-convert').click();
@@ -1065,7 +1043,7 @@
         const processedText = input.value;
         assert(doc.querySelectorAll('.reading-unit').length === 3 && outputText() === processedText,
           'Opnieuw verwerken vervangt daadwerkelijk de oude uitvoer');
-        for (const profile of ['navigator', 'focus', 'personal', 'sounds']) {
+        for (const profile of ['navigator', 'focus']) {
           selectProfile(profile);
           for (const layout of ['blocks', 'continuous']) {
             chooseLayout(layout);
@@ -1082,7 +1060,7 @@
           'Compacte profielkaarten gebruiken een toegankelijke radiogroep met een tabstop');
         let selected = doc.querySelector('[data-reading-profile][aria-checked="true"]');
         for (const [key, expected] of [['ArrowRight', 'navigator'], ['ArrowDown', 'focus'],
-          ['End', 'sounds'], ['ArrowLeft', 'personal'], ['Home', 'navigator'], ['ArrowUp', 'sounds']]) {
+          ['End', 'focus'], ['ArrowLeft', 'navigator'], ['Home', 'navigator'], ['ArrowUp', 'focus']]) {
           selected.dispatchEvent(new app.KeyboardEvent('keydown', { key, bubbles: true }));
           selected = doc.querySelector('[data-reading-profile][aria-checked="true"]');
           assert(selected.dataset.readingProfile === expected && doc.activeElement === selected &&
@@ -1097,14 +1075,13 @@
           const themeCards = Array.from(doc.querySelectorAll('.theme-option')).map(card => card.getBoundingClientRect());
           for (const [name, cards] of [['profielen', profileCards], ['achtergronden', themeCards]]) {
             assert(cards.every(card => Math.abs(card.width - cards[0].width) < 1 && Math.abs(card.height - cards[0].height) < 1) &&
-              cards[0].top === cards[1].top && cards[2].top === cards[3].top && cards[2].top > cards[0].top,
-              `Gelijkwaardige 2x2-kaarten, inclusief Donker naast Warmgroen: ${name} op ${width}px`);
+              cards[0].top === cards[1].top &&
+              (name === 'profielen' ? cards.length === 2 : cards[2].top === cards[3].top && cards[2].top > cards[0].top),
+              `Gelijkwaardige kaarten zonder lege vakken: ${name} op ${width}px`);
           }
-          const personalTitle = doc.querySelector('[data-reading-profile="personal"] .profile-choice-title');
-          assert(personalTitle.getBoundingClientRect().height <= parseFloat(app.getComputedStyle(personalTitle).lineHeight) * 2 + 1 &&
-            Array.from(doc.querySelectorAll('.reading-profile-choice')).every(card => card.scrollWidth <= card.clientWidth) &&
+          assert(Array.from(doc.querySelectorAll('.reading-profile-choice')).every(card => card.scrollWidth <= card.clientWidth) &&
             doc.documentElement.scrollWidth <= app.innerWidth,
-            `Geen overlappende tekst, maximaal twee titelregels en geen pagina-overflow op ${width}px`);
+            `Geen overlappende profieltekst of pagina-overflow op ${width}px`);
           const layouts = Array.from(doc.querySelectorAll('[data-reading-layout]')).map(button => button.getBoundingClientRect());
           assert(Math.abs(layouts[0].width - layouts[1].width) < 1 && layouts[0].height === layouts[1].height,
             `Tekstweergaveknoppen zijn exact even groot op ${width}px`);
@@ -1151,29 +1128,26 @@
           'Voorbeeldknop verwerkt echte voorbeeldtekst en actualiseert de teller');
         const ids = Array.from(doc.querySelectorAll('[id]')).map(element => element.id);
         assert(new Set(ids).size === ids.length, 'De applicatie heeft geen dubbele IDs');
-        doc.getElementById('tab-btn-web').click();
-        const urlInput = doc.getElementById('web-url-input');
-        urlInput.value = '';
-        doc.getElementById('btn-fetch-webpage').click();
-        assert(doc.getElementById('web-alert').style.display === 'flex' &&
-          doc.getElementById('web-alert-text').textContent.includes('Voer eerst een link'),
-          'Een lege webimport toont een Nederlandse foutmelding');
-        const fetchBeforeFailureTest = app.fetch;
-        try {
-          app.fetch = () => Promise.reject(new TypeError('Netwerk geweigerd tijdens regressietest'));
-          urlInput.value = 'https://example.org/artikel';
-          doc.getElementById('btn-fetch-webpage').click();
-          await waitUntil(() => doc.getElementById('web-alert').style.display === 'flex',
-            'Mislukte webimport bleef bezig');
-          assert(doc.getElementById('web-processing').style.display === 'none' &&
-            input.value.length > 100 && doc.querySelector('.reading-unit'),
-            'Mislukte webimport herstelt de bediening en behoudt tekst en uitvoer');
-        } finally {
-          app.fetch = fetchBeforeFailureTest;
-        }
-        doc.getElementById('btn-clear-url').click();
-        assert(urlInput.value === '' && doc.getElementById('web-alert').style.display === 'none',
-          'Wissen van een webadres verwijdert ook de importfout');
+        const plainUrlText = 'Dit is gewone tekst: https://example.org/voorbeeld?a=1&b=2.';
+        doc.getElementById('text-input').value = plainUrlText;
+        doc.getElementById('btn-convert').click();
+        assert(outputText() === plainUrlText && !doc.querySelector('.blokje-content a'),
+          'Een geplakt webadres blijft gewone leestekst zonder import of linkverwerking');
+        app = await loadApp(false, '?text=Niet%20importeren&title=Test&url=https%3A%2F%2Fexample.org#import_url=https%3A%2F%2Fexample.org');
+        doc = app.document;
+        assert(doc.getElementById('text-input').value === '' && !doc.querySelector('.reading-unit'),
+          'Query- en hashparameters veroorzaken geen tekst- of websiteimport meer');
+        app.dispatchEvent(new app.MessageEvent('message', { data: { type: 'LEESBLOKJES_IMPORT_TEXT',
+          text: 'Niet importeren', url: 'https://example.org', title: 'Test' } }));
+        app.dispatchEvent(new app.MessageEvent('message', { data: { type: 'LEESBLOKJES_EXT_IMPORT',
+          text: 'Niet importeren' } }));
+        assert(doc.getElementById('text-input').value === '' && !doc.querySelector('.reading-unit'),
+          'Externe berichten activeren geen import of overlay meer');
+        const scriptResponse = await fetch('../script.js');
+        assert(scriptResponse.ok, 'Applicatiescript is beschikbaar voor de structurele regressiecontrole');
+        const appScript = await scriptResponse.text();
+        assert(!/WebpageProcessor|URLSearchParams|postMessage|window\.location|fetch\(|importText|Bookmarklet|handleWebImport|helpControls/.test(appScript),
+          'Applicatiescript bevat geen scraping, URL-verwerking, externe import of verwijderde profielservices');
         frame.style.width = '280px';
         await new Promise(resolve => app.requestAnimationFrame(resolve));
         assert(['.reading-profile-picker', '.theme-picker', '.reading-layout-section .reading-mode-picker']
