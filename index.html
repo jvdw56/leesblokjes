@@ -259,88 +259,204 @@
         </div>
       </div>
 
-      <!-- Document Upload Gedeelte (.docx & .pdf) -->
-      <div class="document-upload-section" id="document-upload-section">
-        <div
-          class="upload-dropzone"
-          id="upload-dropzone"
-          tabindex="0"
-          role="region"
-          aria-label="Document uploaden via slepen of bestand kiezen"
-        >
-          <input
-            type="file"
-            id="file-input"
-            class="file-input-hidden"
-            accept=".docx,.pdf,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-            aria-label="Kies een Word- (.docx) of PDF- (.pdf) bestand"
+      <!-- Import Sectie: Tabs voor Document uploaden (.docx & .pdf) en Webpagina importeren (URL) -->
+      <div class="import-section" id="import-section">
+        
+        <!-- Tab selector -->
+        <div class="import-tabs" role="tablist" aria-label="Kies een importbron">
+          <button
+            type="button"
+            id="tab-btn-doc"
+            class="import-tab-btn is-active"
+            role="tab"
+            aria-selected="true"
+            aria-controls="import-panel-doc"
           >
+            <span class="emoji-icon" aria-hidden="true">📁</span>
+            <span>Document uploaden</span>
+          </button>
 
-          <!-- Standaard toestand: upload prompt -->
-          <div class="upload-idle" id="upload-idle">
-            <div class="upload-top-bar">
-              <span class="upload-label-title">
-                <span class="emoji-icon" aria-hidden="true">📁</span> Document uploaden
-              </span>
-              <span class="upload-badge">Word (.docx) &amp; PDF (.pdf)</span>
-            </div>
-            <div class="upload-cta">
-              <label for="file-input" class="btn-choose-file" tabindex="0" role="button">
-                <span class="emoji-icon" aria-hidden="true">📄</span> Bestand kiezen
-              </label>
-              <span class="upload-or">of</span>
-              <span class="upload-drag-text">Sleep een Word- of PDF-bestand hierheen</span>
-            </div>
-            <p class="upload-privacy-note">
-              <span class="privacy-icon" aria-hidden="true">🔒</span>
-              100% lokaal en privé in je eigen browser — jouw document wordt nooit naar een server gestuurd.
-            </p>
-          </div>
+          <button
+            type="button"
+            id="tab-btn-web"
+            class="import-tab-btn"
+            role="tab"
+            aria-selected="false"
+            aria-controls="import-panel-web"
+          >
+            <span class="emoji-icon" aria-hidden="true">🌍</span>
+            <span>Webpagina importeren</span>
+          </button>
+        </div>
 
-          <!-- Bezig met verwerken toestand -->
-          <div class="upload-processing" id="upload-processing" style="display: none;" aria-live="polite">
-            <div class="upload-spinner" aria-hidden="true"></div>
-            <div class="upload-processing-content">
-              <p class="upload-processing-title" id="upload-processing-title">Bezig met document lezen...</p>
-              <p class="upload-processing-sub">We halen de tekst er veilig voor je uit</p>
-            </div>
-          </div>
+        <!-- Tab 1: Document Upload Gedeelte (.docx & .pdf) -->
+        <div class="import-panel" id="import-panel-doc" role="tabpanel" aria-labelledby="tab-btn-doc">
+          <div
+            class="upload-dropzone"
+            id="upload-dropzone"
+            tabindex="0"
+            role="region"
+            aria-label="Document uploaden via slepen of bestand kiezen"
+          >
+            <input
+              type="file"
+              id="file-input"
+              class="file-input-hidden"
+              accept=".docx,.pdf,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+              aria-label="Kies een Word- (.docx) of PDF- (.pdf) bestand"
+            >
 
-          <!-- Succestoestand na het laden van een document -->
-          <div class="upload-success" id="upload-success" style="display: none;" aria-live="polite">
-            <div class="upload-success-content">
-              <div class="upload-success-badge" aria-hidden="true">✅</div>
-              <div class="upload-success-meta">
-                <div class="upload-success-headline">Document succesvol geladen</div>
-                <div class="upload-file-details">
-                  <span class="upload-file-icon" aria-hidden="true">📄</span>
-                  <span class="upload-file-name" id="upload-file-name">document.docx</span>
-                  <span class="upload-dot-sep" aria-hidden="true">•</span>
-                  <span class="upload-word-count" id="upload-word-count">0 woorden gevonden</span>
-                </div>
+            <!-- Standaard toestand: upload prompt -->
+            <div class="upload-idle" id="upload-idle">
+              <div class="upload-top-bar">
+                <span class="upload-label-title">
+                  <span class="emoji-icon" aria-hidden="true">📁</span> Document uploaden
+                </span>
+                <span class="upload-badge">Word (.docx) &amp; PDF (.pdf)</span>
+              </div>
+              <div class="upload-cta">
+                <label for="file-input" class="btn-choose-file" tabindex="0" role="button">
+                  <span class="emoji-icon" aria-hidden="true">📄</span> Bestand kiezen
+                </label>
+                <span class="upload-or">of</span>
+                <span class="upload-drag-text">Sleep een Word- of PDF-bestand hierheen</span>
+              </div>
+              <p class="upload-privacy-note">
+                <span class="privacy-icon" aria-hidden="true">🔒</span>
+                100% lokaal en privé in je eigen browser — jouw document wordt nooit naar een server gestuurd.
+              </p>
+            </div>
+
+            <!-- Bezig met verwerken toestand -->
+            <div class="upload-processing" id="upload-processing" style="display: none;" aria-live="polite">
+              <div class="upload-spinner" aria-hidden="true"></div>
+              <div class="upload-processing-content">
+                <p class="upload-processing-title" id="upload-processing-title">Bezig met document lezen...</p>
+                <p class="upload-processing-sub">We halen de tekst er veilig voor je uit</p>
               </div>
             </div>
-            <div class="upload-success-actions">
-              <button
-                type="button"
-                id="btn-remove-doc"
-                class="btn-ghost btn-sm btn-remove-file"
-                title="Ander bestand kiezen of document wissen"
-              >
-                <span aria-hidden="true">✕</span> Ander bestand kiezen
+
+            <!-- Succestoestand na het laden van een document -->
+            <div class="upload-success" id="upload-success" style="display: none;" aria-live="polite">
+              <div class="upload-success-content">
+                <div class="upload-success-badge" aria-hidden="true">✅</div>
+                <div class="upload-success-meta">
+                  <div class="upload-success-headline">Document succesvol geladen</div>
+                  <div class="upload-file-details">
+                    <span class="upload-file-icon" aria-hidden="true">📄</span>
+                    <span class="upload-file-name" id="upload-file-name">document.docx</span>
+                    <span class="upload-dot-sep" aria-hidden="true">•</span>
+                    <span class="upload-word-count" id="upload-word-count">0 woorden gevonden</span>
+                  </div>
+                </div>
+              </div>
+              <div class="upload-success-actions">
+                <button
+                  type="button"
+                  id="btn-remove-doc"
+                  class="btn-ghost btn-sm btn-remove-file"
+                  title="Ander bestand kiezen of document wissen"
+                >
+                  <span aria-hidden="true">✕</span> Ander bestand kiezen
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Fout- / Waarschuwingsmelding (bijv. gescand document zonder tekst) -->
+          <div class="upload-alert" id="upload-alert" style="display: none;" role="alert">
+            <span class="upload-alert-icon" aria-hidden="true">⚠️</span>
+            <div class="upload-alert-content">
+              <p class="upload-alert-text" id="upload-alert-text"></p>
+            </div>
+            <button type="button" class="upload-alert-close" id="btn-close-alert" aria-label="Sluit deze melding">✕</button>
+          </div>
+        </div>
+
+        <!-- Tab 2: Webpagina Importeren -->
+        <div class="import-panel" id="import-panel-web" role="tabpanel" aria-labelledby="tab-btn-web" style="display: none;">
+          <div class="web-import-card">
+            <div class="upload-top-bar">
+              <span class="upload-label-title">
+                <span class="emoji-icon" aria-hidden="true">🌍</span> Webpagina importeren
+              </span>
+              <span class="upload-badge">Wikipedia, Jeugdjournaal, Nu.nl &amp; educatieve websites</span>
+            </div>
+
+            <!-- URL Invoeren & Ophalen Formulier -->
+            <div class="web-import-form">
+              <div class="web-url-wrapper">
+                <span class="web-url-icon" aria-hidden="true">🔗</span>
+                <input
+                  type="url"
+                  id="web-url-input"
+                  class="web-url-input"
+                  placeholder="Typ of plak een link, bijv. https://nl.wikipedia.org/wiki/Dolfijnen"
+                  aria-label="URL invoeren van een webpagina"
+                >
+                <button type="button" id="btn-clear-url" class="btn-clear-url" title="URL wissen" style="display: none;" aria-label="URL wissen">✕</button>
+              </div>
+              <button type="button" id="btn-fetch-webpage" class="btn-primary btn-fetch-web">
+                <span class="btn-icon" aria-hidden="true">🌐</span>
+                <span class="btn-text">Pagina ophalen</span>
               </button>
+            </div>
+
+            <!-- Voorbeeld suggesties / snelkoppelingen -->
+            <div class="web-suggestions">
+              <span class="suggestions-label">Voorbeelden:</span>
+              <button type="button" class="btn-chip" data-url="https://nl.wikipedia.org/wiki/Dolfijnen">🐬 Dolfijnen (Wikipedia)</button>
+              <button type="button" class="btn-chip" data-url="https://nl.wikipedia.org/wiki/Maan">🌙 De Maan (Wikipedia)</button>
+              <button type="button" class="btn-chip" data-url="https://jeugdjournaal.nl">📺 Jeugdjournaal</button>
+              <button type="button" class="btn-chip" data-url="https://www.nu.nl">📰 Nu.nl</button>
+            </div>
+
+            <!-- Web status: Bezig met ophalen -->
+            <div class="upload-processing" id="web-processing" style="display: none;" aria-live="polite">
+              <div class="upload-spinner" aria-hidden="true"></div>
+              <div class="upload-processing-content">
+                <p class="upload-processing-title" id="web-processing-title">Bezig met pagina ophalen...</p>
+                <p class="upload-processing-sub">We halen de hoofdtekst veilig en direct voor je op</p>
+              </div>
+            </div>
+
+            <!-- Web status: Succesvol geladen -->
+            <div class="upload-success" id="web-success" style="display: none;" aria-live="polite">
+              <div class="upload-success-content">
+                <div class="upload-success-badge" aria-hidden="true">✅</div>
+                <div class="upload-success-meta">
+                  <div class="upload-success-headline">Webpagina succesvol geladen</div>
+                  <div class="upload-file-details">
+                    <span class="upload-file-icon" aria-hidden="true">🌍</span>
+                    <span class="upload-file-name" id="web-page-title">Pagina titel</span>
+                    <span class="upload-dot-sep" aria-hidden="true">•</span>
+                    <span class="upload-word-count" id="web-word-count">0 woorden gevonden</span>
+                  </div>
+                </div>
+              </div>
+              <div class="upload-success-actions">
+                <button
+                  type="button"
+                  id="btn-remove-web"
+                  class="btn-ghost btn-sm btn-remove-file"
+                  title="Andere pagina ophalen"
+                >
+                  <span aria-hidden="true">✕</span> Andere URL
+                </button>
+              </div>
+            </div>
+
+            <!-- Web alert / foutafhandeling (CORS / beveiliging / ongeldig) -->
+            <div class="upload-alert" id="web-alert" style="display: none;" role="alert">
+              <span class="upload-alert-icon" aria-hidden="true">⚠️</span>
+              <div class="upload-alert-content">
+                <p class="upload-alert-text" id="web-alert-text"></p>
+              </div>
+              <button type="button" class="upload-alert-close" id="btn-close-web-alert" aria-label="Sluit deze melding">✕</button>
             </div>
           </div>
         </div>
 
-        <!-- Fout- / Waarschuwingsmelding (bijv. gescand document zonder tekst) -->
-        <div class="upload-alert" id="upload-alert" style="display: none;" role="alert">
-          <span class="upload-alert-icon" aria-hidden="true">⚠️</span>
-          <div class="upload-alert-content">
-            <p class="upload-alert-text" id="upload-alert-text"></p>
-          </div>
-          <button type="button" class="upload-alert-close" id="btn-close-alert" aria-label="Sluit deze melding">✕</button>
-        </div>
       </div>
 
       <div class="textarea-wrapper">

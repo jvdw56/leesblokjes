@@ -50,6 +50,26 @@ document.addEventListener('DOMContentLoaded', () => {
   const uploadAlertText = document.getElementById('upload-alert-text');
   const btnCloseAlert = document.getElementById('btn-close-alert');
 
+  // --- DOM Elementen voor Webpagina Import & Tabs ---
+  const tabBtnDoc = document.getElementById('tab-btn-doc');
+  const tabBtnWeb = document.getElementById('tab-btn-web');
+  const importPanelDoc = document.getElementById('import-panel-doc');
+  const importPanelWeb = document.getElementById('import-panel-web');
+
+  const webUrlInput = document.getElementById('web-url-input');
+  const btnClearUrl = document.getElementById('btn-clear-url');
+  const btnFetchWebpage = document.getElementById('btn-fetch-webpage');
+  const webProcessing = document.getElementById('web-processing');
+  const webProcessingTitle = document.getElementById('web-processing-title');
+  const webSuccess = document.getElementById('web-success');
+  const webSuccessTitle = document.getElementById('web-page-title');
+  const webWordCount = document.getElementById('web-word-count');
+  const btnRemoveWeb = document.getElementById('btn-remove-web');
+  const webAlert = document.getElementById('web-alert');
+  const webAlertText = document.getElementById('web-alert-text');
+  const btnCloseWebAlert = document.getElementById('btn-close-web-alert');
+  const webSuggestions = document.querySelector('.web-suggestions');
+
   // --- Spraaksynthese (Voorlezen) State ---
   let synth = window.speechSynthesis || null;
   let currentUtterance = null;
@@ -678,6 +698,10 @@ Op een dag vond Pip een geheimzinnig kaartje op de grond. Er stond op: 'De schat
     renderBlocks([]);
     setUploadState('idle');
     hideUploadAlert();
+    setWebState('idle');
+    hideWebAlert();
+    if (webUrlInput) webUrlInput.value = '';
+    if (btnClearUrl) btnClearUrl.style.display = 'none';
     showToast('Tekst gewist. 🗑️');
     textInput.focus();
   });
@@ -1052,7 +1076,473 @@ Op een dag vond Pip een geheimzinnig kaartje op de grond. Er stond op: 'De schat
     });
   }
 
-  // --- 9. Kopiëren naar Klembord ---
+  // --- 9. Import Tabs Wisselen (Document vs Webpagina) ---
+  function switchImportTab(targetTab) {
+    const isDoc = targetTab === 'doc';
+    if (tabBtnDoc && tabBtnWeb && importPanelDoc && importPanelWeb) {
+      tabBtnDoc.classList.toggle('is-active', isDoc);
+      tabBtnDoc.setAttribute('aria-selected', String(isDoc));
+      tabBtnWeb.classList.toggle('is-active', !isDoc);
+      tabBtnWeb.setAttribute('aria-selected', String(!isDoc));
+      importPanelDoc.style.display = isDoc ? 'block' : 'none';
+      importPanelWeb.style.display = isDoc ? 'none' : 'block';
+    }
+  }
+
+  if (tabBtnDoc) tabBtnDoc.addEventListener('click', () => switchImportTab('doc'));
+  if (tabBtnWeb) tabBtnWeb.addEventListener('click', () => switchImportTab('web'));
+
+  // --- 10. Webpagina Processor & Import (Wikipedia, Jeugdjournaal, Nu.nl & Educatieve Websites) ---
+  /**
+   * Modulaire webpagina processor voor het ophalen en extraheren van tekst uit webpagina's.
+   * - 100% lokaal in de browser, geen backend, geen betaalde diensten.
+   * - Wikipedia: gebruikt de officiële publieke Wikimedia REST API met CORS-ondersteuning.
+   * - Algemeen: probeert browser fetch en schoont HTML op met een intelligente DOM parser.
+   * - Foutafhandeling: toont de vereiste melding wanneer de browser cross-origin toegang weigert.
+   * - Extensie-klaar: communiceert direct met toekomstige browserextensies via window.postMessage en CustomEvents.
+   */
+  const WebpageProcessor = {
+    /**
+     * Valideert en normaliseert een ingevoerde link.
+     */
+    normalizeUrl(rawUrl) {
+      if (!rawUrl || !rawUrl.trim()) {
+        throw new Error('Voer eerst een geldige link (URL) in.');
+      }
+      let urlStr = rawUrl.trim();
+      if (!/^https?:\/\//i.test(urlStr)) {
+        urlStr = 'https://' + urlStr;
+      }
+      try {
+        const parsed = new URL(urlStr);
+        if (!parsed.hostname || !parsed.hostname.includes('.')) {
+          throw new Error('Ongeldige domeinnaam');
+        }
+        return parsed.href;
+      } catch (e) {
+        throw new Error('Dit internetadres lijkt niet te kloppen. Controleer de link en probeer het opnieuw.');
+      }
+    },
+
+    /**
+     * Haalt een webpagina op en extraheert de hoofdtekst.
+     * @param {string} rawUrl
+     * @returns {Promise<{ title: string, text: string, wordCount: number, url: string }>}
+     */
+    async fetchAndExtract(rawUrl) {
+      const url = this.normalizeUrl(rawUrl);
+
+      // 1. Toekomstige Browserextensie Interceptie
+      // Wanneer een browserextensie geïnstalleerd is, kan deze CORS-beperkingen omzeilen.
+      if (window.__LEESBLOKJES_EXTENSION__ && typeof window.__LEESBLOKJES_EXTENSION__.fetchPage === 'function') {
+        try {
+          const extResult = await window.__LEESBLOKJES_EXTENSION__.fetchPage(url);
+          if (extResult && extResult.text) {
+            const wordCount = extResult.text.split(/\s+/).filter(Boolean).length;
+            return {
+              title: extResult.title || 'Webpagina',
+              text: extResult.text,
+              wordCount,
+              url
+            };
+          }
+        } catch (extErr) {
+          console.warn('Browserextensie ophalen mislukt, val terug op browser-fetch:', extErr);
+        }
+      }
+
+      // 2. Wikipedia: speciale directe afhandeling via de officiële Wikimedia REST API met CORS-ondersteuning
+      const wikiMatch = url.match(/https?:\/\/([a-z0-9_-]+)\.wikipedia\.org\/wiki\/([^#?]+)/i);
+      if (wikiMatch) {
+        return await this.fetchWikipedia(wikiMatch[1], decodeURIComponent(wikiMatch[2]), url);
+      }
+
+      // 3. Directe Browser Fetch (werkt voor sites met open CORS, educatieve platforms, en lokale servers)
+      try {
+        const response = await fetch(url, {
+          method: 'GET',
+          headers: {
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
+          }
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP fout: ${response.status}`);
+        }
+
+        const html = await response.text();
+        const extracted = this.extractMainContent(html, url);
+
+        if (!extracted.text || extracted.wordCount < 10) {
+          throw new Error('Geen bruikbare hoofdtekst gevonden op deze webpagina.');
+        }
+
+        return {
+          title: extracted.title,
+          text: extracted.text,
+          wordCount: extracted.wordCount,
+          url
+        };
+      } catch (err) {
+        // Indien toegang door CORS geweigerd wordt (zoals standaard bij nieuwssites zonder extensie)
+        console.warn('Webpagina fetch geblokkeerd of niet direct toegankelijk:', err);
+        const accessError = new Error(
+          'Deze website laat geen directe toegang toe.\nKopieer de tekst handmatig of gebruik in een latere versie de browserextensie.'
+        );
+        accessError.isDirectAccessBlocked = true;
+        throw accessError;
+      }
+    },
+
+    /**
+     * Haalt een Wikipedia-artikel op via de officiële MediaWiki REST API (volledig CORS-open).
+     */
+    async fetchWikipedia(lang, title, originalUrl) {
+      const cleanTitle = title.replace(/_/g, ' ');
+      const apiUrl = `https://${lang}.wikipedia.org/api/rest_v1/page/html/${encodeURIComponent(title.replace(/ /g, '_'))}`;
+
+      try {
+        const res = await fetch(apiUrl);
+        if (!res.ok) {
+          throw new Error(`Wikipedia artikel niet gevonden (status: ${res.status}).`);
+        }
+        const html = await res.text();
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+
+        // Verwijder overbodige elementen (tabellen, referenties, bewerkingslinks, categoriekaders)
+        const toRemove = doc.querySelectorAll('style, script, link, .mw-ref, .mw-editsection, table, figure, .navbox, .infobox, .hatnote, .ambox, .metadata');
+        toRemove.forEach(el => el.remove());
+
+        const elements = doc.querySelectorAll('p, h2, h3');
+        const paragraphs = [];
+
+        elements.forEach(el => {
+          const text = el.textContent.replace(/\s+/g, ' ').trim();
+          if (!text) return;
+          const tag = el.tagName.toLowerCase();
+          if (tag === 'h2' || tag === 'h3') {
+            // Sla typische Wikipedia slotsecties over
+            if (/^(zie ook|bronnen|referenties|literatuur|externe links|noten|voetnoten|bibliografie)/i.test(text)) {
+              return;
+            }
+            paragraphs.push(`\n### ${text}\n`);
+          } else if (text.length > 20) {
+            paragraphs.push(text);
+          }
+        });
+
+        const fullText = paragraphs.join('\n\n').replace(/\n{3,}/g, '\n\n').trim();
+        const words = fullText.split(/\s+/).filter(Boolean).length;
+
+        if (words < 10) {
+          throw new Error('Dit Wikipedia-artikel bevat te weinig tekst.');
+        }
+
+        return {
+          title: cleanTitle + ' (Wikipedia)',
+          text: fullText,
+          wordCount: words,
+          url: originalUrl
+        };
+      } catch (err) {
+        console.warn('Wikipedia ophalen mislukt:', err);
+        throw new Error(
+          'Deze website laat geen directe toegang toe.\nKopieer de tekst handmatig of gebruik in een latere versie de browserextensie.'
+        );
+      }
+    },
+
+    /**
+     * Extraheert de hoofdtekst uit HTML met behulp van DOMParser.
+     */
+    extractMainContent(html, url) {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(html, 'text/html');
+
+      // Verwijder storende niet-content elementen
+      const removeSelectors = [
+        'script', 'style', 'noscript', 'iframe', 'svg', 'canvas',
+        'nav', 'header', 'footer', 'aside', 'form', 'button', 'dialog',
+        '[role="navigation"]', '[role="banner"]', '[role="contentinfo"]', '[role="complementary"]',
+        '.nav', '.navbar', '.menu', '.sidebar', '.footer', '.advertisement', '.ad',
+        '.social-share', '.social-buttons', '.share-buttons', '.cookie-banner', '.cookie-notice',
+        '.comments', '#comments', '.related-articles', '.related-posts'
+      ];
+      removeSelectors.forEach(sel => {
+        doc.querySelectorAll(sel).forEach(el => el.remove());
+      });
+
+      // Paginatitel achterhalen
+      let pageTitle = '';
+      const h1 = doc.querySelector('h1');
+      if (h1 && h1.textContent.trim()) {
+        pageTitle = h1.textContent.trim();
+      } else if (doc.title) {
+        pageTitle = doc.title.split(/[-–|]/)[0].trim();
+      }
+
+      // Zoek naar hoofdcontent containers (geschikt voor nieuws & educatieve artikelen)
+      const contentSelectors = [
+        'article',
+        '[itemprop="articleBody"]',
+        '.article-body',
+        '.article__body',
+        '.article-content',
+        '.post-content',
+        '.entry-content',
+        'main',
+        '[role="main"]',
+        '.content',
+        '#content'
+      ];
+
+      let container = null;
+      for (const sel of contentSelectors) {
+        const el = doc.querySelector(sel);
+        if (el && el.textContent.trim().length > 100) {
+          container = el;
+          break;
+        }
+      }
+      if (!container) container = doc.body;
+
+      const elements = container.querySelectorAll('h1, h2, h3, p, li, blockquote');
+      const paragraphs = [];
+
+      elements.forEach(el => {
+        const text = el.textContent.replace(/\s+/g, ' ').trim();
+        if (!text) return;
+        const tag = el.tagName.toLowerCase();
+        if (tag.startsWith('h')) {
+          if (text.length >= 3 && text.length <= 120) {
+            paragraphs.push(text);
+          }
+        } else if (tag === 'li') {
+          if (text.length >= 20) {
+            paragraphs.push('• ' + text);
+          }
+        } else {
+          if (text.length >= 20) {
+            paragraphs.push(text);
+          }
+        }
+      });
+
+      let fullText = paragraphs.join('\n\n').trim();
+      if (!fullText || fullText.split(/\s+/).length < 20) {
+        fullText = (container.innerText || container.textContent || '')
+          .replace(/\r\n/g, '\n')
+          .replace(/\r/g, '\n')
+          .replace(/[^\S\n]+/g, ' ')
+          .replace(/\n{3,}/g, '\n\n')
+          .trim();
+      }
+
+      const wordCount = fullText.split(/\s+/).filter(Boolean).length;
+
+      return {
+        title: pageTitle || 'Webpagina',
+        text: fullText,
+        wordCount
+      };
+    }
+  };
+
+  // Web Import UI State Management
+  function setWebState(state, data = {}) {
+    if (!webProcessing || !webSuccess) return;
+
+    if (state === 'idle') {
+      webProcessing.style.display = 'none';
+      webSuccess.style.display = 'none';
+    } else if (state === 'processing') {
+      webProcessing.style.display = 'flex';
+      webSuccess.style.display = 'none';
+      hideWebAlert();
+      if (webProcessingTitle) {
+        webProcessingTitle.textContent = data.title || 'Bezig met pagina ophalen...';
+      }
+    } else if (state === 'success') {
+      webProcessing.style.display = 'none';
+      webSuccess.style.display = 'flex';
+      hideWebAlert();
+      if (webSuccessTitle) webSuccessTitle.textContent = data.title || 'Webpagina';
+      if (webWordCount) {
+        const count = data.wordCount || 0;
+        webWordCount.textContent = `${count} ${count === 1 ? 'woord' : 'woorden'} gevonden`;
+      }
+    }
+  }
+
+  function showWebAlert(message) {
+    if (!webAlert || !webAlertText) return;
+    webAlertText.textContent = message;
+    webAlert.style.display = 'flex';
+  }
+
+  function hideWebAlert() {
+    if (!webAlert || !webAlertText) return;
+    webAlert.style.display = 'none';
+    webAlertText.textContent = '';
+  }
+
+  /**
+   * Verwerkt het ophalen van een webpagina:
+   * 1. Valideert URL
+   * 2. Toont voortgangsindicator
+   * 3. Haalt pagina op via WebpageProcessor
+   * 4. Indien succesvol: plaatst tekst in tekstvak en voert direct LeesBlokjes verwerking uit
+   * 5. Indien niet succesvol: toont de vereiste foutmelding
+   */
+  async function handleWebImport(rawUrl) {
+    const url = (rawUrl || (webUrlInput ? webUrlInput.value : '')).trim();
+
+    hideWebAlert();
+
+    if (!url) {
+      showWebAlert('Voer eerst een link (URL) in van een webpagina.');
+      if (webUrlInput) webUrlInput.focus();
+      return;
+    }
+
+    setWebState('processing', {
+      title: 'Bezig met webpagina ophalen...'
+    });
+
+    try {
+      const result = await WebpageProcessor.fetchAndExtract(url);
+
+      // Succesvolle extractie
+      setWebState('success', {
+        title: result.title,
+        wordCount: result.wordCount
+      });
+
+      // Plaats de tekst in het invoervak
+      textInput.value = result.text;
+      updateCounter();
+
+      // Pas direct de bestaande LeesBlokjes verwerking toe
+      const blocks = splitIntoReadingBlocks(result.text);
+      renderBlocks(blocks);
+
+      showToast(`Webpagina succesvol geladen! ${result.wordCount} woorden omgezet naar ${blocks.length} leesblokjes. 🌍✨`);
+    } catch (err) {
+      console.warn('Web import fout:', err);
+      setWebState('idle');
+
+      // Toon exact de vereiste foutmelding
+      const message = err && err.message
+        ? err.message
+        : 'Deze website laat geen directe toegang toe.\nKopieer de tekst handmatig of gebruik in een latere versie de browserextensie.';
+
+      showWebAlert(message);
+      showToast('Deze website laat geen directe toegang toe. ⚠️');
+    }
+  }
+
+  // Event Listeners voor Web Import
+  if (btnFetchWebpage) {
+    btnFetchWebpage.addEventListener('click', () => {
+      handleWebImport(webUrlInput ? webUrlInput.value : '');
+    });
+  }
+
+  if (webUrlInput) {
+    webUrlInput.addEventListener('input', () => {
+      if (btnClearUrl) {
+        btnClearUrl.style.display = webUrlInput.value ? 'inline-block' : 'none';
+      }
+      hideWebAlert();
+    });
+
+    webUrlInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        handleWebImport(webUrlInput.value);
+      }
+    });
+  }
+
+  if (btnClearUrl) {
+    btnClearUrl.addEventListener('click', () => {
+      if (webUrlInput) {
+        webUrlInput.value = '';
+        webUrlInput.focus();
+      }
+      btnClearUrl.style.display = 'none';
+      setWebState('idle');
+      hideWebAlert();
+    });
+  }
+
+  if (btnRemoveWeb) {
+    btnRemoveWeb.addEventListener('click', () => {
+      setWebState('idle');
+      hideWebAlert();
+      if (webUrlInput) {
+        webUrlInput.value = '';
+        webUrlInput.focus();
+      }
+      if (btnClearUrl) btnClearUrl.style.display = 'none';
+    });
+  }
+
+  if (btnCloseWebAlert) {
+    btnCloseWebAlert.addEventListener('click', () => {
+      hideWebAlert();
+    });
+  }
+
+  // Klikken op suggestie-chips (bijv. Dolfijnen, De Maan, Jeugdjournaal, Nu.nl)
+  if (webSuggestions) {
+    webSuggestions.addEventListener('click', (e) => {
+      const chip = e.target.closest('.btn-chip');
+      if (chip && chip.dataset.url) {
+        const url = chip.dataset.url;
+        if (webUrlInput) {
+          webUrlInput.value = url;
+          if (btnClearUrl) btnClearUrl.style.display = 'inline-block';
+        }
+        handleWebImport(url);
+      }
+    });
+  }
+
+  // --- 11. Uitbreidbaarheid voor Toekomstige Browserextensie ---
+  // Luister naar berichten vanuit een browserextensie via window.postMessage
+  window.addEventListener('message', (event) => {
+    if (event.data && (event.data.type === 'LEESBLOKJES_EXT_IMPORT' || event.data.type === 'LEESBLOKJES_IMPORT_WEBPAGE')) {
+      const { text, title, url } = event.data;
+      if (text) {
+        switchImportTab('web');
+        if (webUrlInput && url) webUrlInput.value = url;
+        const words = text.split(/\s+/).filter(Boolean).length;
+        setWebState('success', { title: title || 'Geïmporteerde pagina', wordCount: words });
+        textInput.value = text;
+        updateCounter();
+        const blocks = splitIntoReadingBlocks(text);
+        renderBlocks(blocks);
+        showToast('Webpagina via browserextensie geïmporteerd! 🚀');
+      }
+    }
+  });
+
+  // Ondersteun URL query parameters (?url=... of ?import_url=...) voor directe koppeling vanuit een extensie
+  try {
+    const urlParams = new URLSearchParams(window.location.search);
+    const queryUrl = urlParams.get('url') || urlParams.get('import_url');
+    if (queryUrl) {
+      switchImportTab('web');
+      if (webUrlInput) webUrlInput.value = queryUrl;
+      handleWebImport(queryUrl);
+    }
+  } catch (paramErr) {
+    // Negeer fouten bij het uitlezen van query parameters
+  }
+
+  // --- 12. Kopiëren naar Klembord ---
   btnCopy.addEventListener('click', async () => {
     const blockElements = Array.from(outputArea.querySelectorAll('.lees-blokje'));
     if (blockElements.length === 0) return;
@@ -1216,10 +1706,13 @@ Op een dag vond Pip een geheimzinnig kaartje op de grond. Er stond op: 'De schat
   // Initialiseer woordenteller bij eventuele reeds aanwezige tekst
   updateCounter();
 
-  // Exporteer publieke API voor uitbreidingen (bijv. toekomstige OCR module) en tests
+  // Exporteer publieke API voor uitbreidingen (bijv. toekomstige OCR module en browserextensie) en tests
   window.LeesBlokjes = {
     DocumentProcessor,
+    WebpageProcessor,
     handleFileUpload,
+    handleWebImport,
+    switchImportTab,
     splitIntoReadingBlocks,
     renderBlocks,
     splitDutchSyllables,
