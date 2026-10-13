@@ -18,6 +18,11 @@ document.addEventListener('DOMContentLoaded', () => {
   const btnStopAudio = document.getElementById('btn-stop-audio');
   const btnCopy = document.getElementById('btn-copy');
 
+  // --- Indeling & Inklapbaar Paneel ---
+  const mainLayout = document.getElementById('main-layout');
+  const btnToggleSidebar = document.getElementById('btn-toggle-sidebar');
+  const btnCloseSidebar = document.getElementById('btn-close-sidebar');
+
   // --- DOM Elementen voor Persoonlijk Leesprofiel ---
   const profileFont = document.getElementById('profile-font');
   const profileFontSize = document.getElementById('profile-font-size');
@@ -234,7 +239,73 @@ document.addEventListener('DOMContentLoaded', () => {
 
   loadProfile();
 
-  // --- 2. Tekstinvoer Hulpjes & Woordenteller ---
+  // --- 2. Inklapbaar Instellingenpaneel (Sidebar) ---
+  const SIDEBAR_COLLAPSED_KEY = 'leesblokjes_paneel_ingeklapt';
+
+  function setSidebarCollapsed(collapsed, save = true) {
+    if (!mainLayout || !btnToggleSidebar) return;
+
+    mainLayout.classList.toggle('sidebar-collapsed', collapsed);
+    btnToggleSidebar.setAttribute('aria-expanded', String(!collapsed));
+    btnToggleSidebar.classList.toggle('is-collapsed', collapsed);
+
+    if (collapsed) {
+      btnToggleSidebar.innerHTML = `
+        <span class="toggle-icon" aria-hidden="true">🎨</span>
+        <span class="toggle-text">Instellingen tonen</span>
+      `;
+      btnToggleSidebar.title = 'Toon de leesinstellingen';
+    } else {
+      btnToggleSidebar.innerHTML = `
+        <span class="toggle-icon" aria-hidden="true">⚙️</span>
+        <span class="toggle-text">Instellingen verbergen</span>
+      `;
+      btnToggleSidebar.title = 'Verberg instellingen voor meer tekstruimte';
+    }
+
+    if (save) {
+      try {
+        localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(collapsed));
+      } catch (e) {
+        console.warn('Kon paneelstatus niet opslaan:', e);
+      }
+    }
+  }
+
+  function loadSidebarState() {
+    try {
+      const saved = localStorage.getItem(SIDEBAR_COLLAPSED_KEY);
+      // Standaard uitgeklapt bij eerste gebruik (indien saved === null of niet 'true')
+      const isCollapsed = saved === 'true';
+      setSidebarCollapsed(isCollapsed, false);
+    } catch (e) {
+      setSidebarCollapsed(false, false);
+    }
+  }
+
+  if (btnToggleSidebar) {
+    btnToggleSidebar.addEventListener('click', () => {
+      const currentlyCollapsed = mainLayout.classList.contains('sidebar-collapsed');
+      const newState = !currentlyCollapsed;
+      setSidebarCollapsed(newState, true);
+      if (newState && typeof showToast === 'function') {
+        showToast('Instellingen verborgen voor meer ruimte. 📖');
+      }
+    });
+  }
+
+  if (btnCloseSidebar) {
+    btnCloseSidebar.addEventListener('click', () => {
+      setSidebarCollapsed(true, true);
+      if (typeof showToast === 'function') {
+        showToast('Instellingen verborgen voor meer ruimte. 📖');
+      }
+    });
+  }
+
+  loadSidebarState();
+
+  // --- 3. Tekstinvoer Hulpjes & Woordenteller ---
   function updateCounter() {
     const text = textInput.value.trim();
     if (!text) {
