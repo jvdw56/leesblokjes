@@ -7,7 +7,7 @@
   --user-font-family: 'Lexend', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --user-font-size: 20px;
   --user-line-height: 1.8;
-  --user-word-spacing: 1;
+  --word-gap: 0.65em;
 
   /* Font basissen */
   --font-lexend: 'Lexend', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -1840,8 +1840,29 @@ body.dark-mode .blokje-badge {
   font-size: var(--user-font-size);
   line-height: var(--user-line-height);
   color: var(--color-text-main);
-  word-break: break-word;
-  word-spacing: calc((var(--user-word-spacing) - 1) * 0.25em);
+  overflow-x: auto;
+  word-spacing: normal;
+}
+
+.word-group {
+  display: inline-flex;
+  align-items: baseline;
+  flex-wrap: nowrap;
+  white-space: nowrap;
+  margin-inline-end: var(--word-gap);
+  vertical-align: baseline;
+}
+
+.word-group:last-child {
+  margin-inline-end: 0;
+}
+
+.continuous-reading {
+  width: 100%;
+  padding: 20px 22px;
+  border: 2px solid var(--blokje-border);
+  border-radius: var(--radius-md);
+  background-color: var(--blokje-bg);
 }
 
 .continuous-reading .blokje-content {
@@ -1857,6 +1878,7 @@ body.show-syllables .blokje-content {
    -------------------------------------------------------------------------- */
 .syl-word {
   display: inline;
+  white-space: nowrap;
 }
 
 body.show-syllables .syl-word {
@@ -1866,7 +1888,6 @@ body.show-syllables .syl-word {
   gap: 5px;
   margin: 2px 0 2px 1px;
   vertical-align: baseline;
-  max-width: 100%;
 }
 
 /* Scheidingsteken: verborgen omdat de losse bouwstenen zelf als afscheiding dienen */
@@ -2074,12 +2095,10 @@ body.sound-mode .blokje-content {
 .sound-word {
   display: inline-flex;
   align-items: center;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 5px;
-  row-gap: 16px;
   margin: 8px 0 10px 1px;
   vertical-align: baseline;
-  max-width: 100%;
 }
 
 .sound {
@@ -2707,17 +2726,29 @@ body.dark-mode .source-website-badge {
     padding: 16px;
   }
 
+  .continuous-reading {
+    padding: 16px;
+  }
+
   /* Mobiele lettergreep bouwstenen */
   body.show-syllables .syl-word {
     gap: 3.5px;
     margin: 2px 0 2px 1px;
-    flex-wrap: wrap; /* Voorkomt overflow bij lange woorden op smalle telefoonschermen */
-    max-width: 100%;
+    flex-wrap: nowrap;
   }
 
   body.show-syllables .syl {
     padding: 3px 8px;
     border-radius: 8px;
+    font-size: 0.95em;
+  }
+
+  .sound-word {
+    gap: 3px;
+  }
+
+  .sound {
+    padding: 3px 5px;
     font-size: 0.95em;
   }
 }

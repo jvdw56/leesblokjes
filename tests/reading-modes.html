@@ -33,6 +33,80 @@
           frame.src = '../index.html';
         });
       }
+      function createDocx(app, text) {
+        const encoder = new TextEncoder();
+        const entries = [
+          ['[Content_Types].xml', '<?xml version="1.0"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>'],
+          ['_rels/.rels', '<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>'],
+          ['word/document.xml', `<?xml version="1.0"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body><w:p><w:r><w:t>${text}</w:t></w:r></w:p></w:body></w:document>`]
+        ];
+        const local = [];
+        const central = [];
+        let offset = 0;
+        for (const [path, xml] of entries) {
+          const name = encoder.encode(path);
+          const data = encoder.encode(xml);
+          let crc = 0xffffffff;
+          for (const byte of data) {
+            crc ^= byte;
+            for (let bit = 0; bit < 8; bit++) crc = (crc >>> 1) ^ ((crc & 1) ? 0xedb88320 : 0);
+          }
+          crc = (crc ^ 0xffffffff) >>> 0;
+          const header = new Uint8Array(30 + name.length);
+          const view = new DataView(header.buffer);
+          view.setUint32(0, 0x04034b50, true);
+          view.setUint16(4, 20, true);
+          view.setUint32(14, crc, true);
+          view.setUint32(18, data.length, true);
+          view.setUint32(22, data.length, true);
+          view.setUint16(26, name.length, true);
+          header.set(name, 30);
+          local.push(header, data);
+          const directory = new Uint8Array(46 + name.length);
+          const directoryView = new DataView(directory.buffer);
+          directoryView.setUint32(0, 0x02014b50, true);
+          directoryView.setUint16(4, 20, true);
+          directoryView.setUint16(6, 20, true);
+          directoryView.setUint32(16, crc, true);
+          directoryView.setUint32(20, data.length, true);
+          directoryView.setUint32(24, data.length, true);
+          directoryView.setUint16(28, name.length, true);
+          directoryView.setUint32(42, offset, true);
+          directory.set(name, 46);
+          central.push(directory);
+          offset += header.length + data.length;
+        }
+        const end = new Uint8Array(22);
+        const endView = new DataView(end.buffer);
+        endView.setUint32(0, 0x06054b50, true);
+        endView.setUint16(8, entries.length, true);
+        endView.setUint16(10, entries.length, true);
+        endView.setUint32(12, central.reduce((length, data) => length + data.length, 0), true);
+        endView.setUint32(16, offset, true);
+        return new app.File([...local, ...central, end], 'regressie.docx',
+          { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
+      }
+      function createPdf(app, text) {
+        const stream = `BT /F1 18 Tf 50 750 Td (${text}) Tj ET`;
+        const objects = [
+          '<< /Type /Catalog /Pages 2 0 R >>',
+          '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+          '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>',
+          '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
+          `<< /Length ${stream.length} >>\nstream\n${stream}\nendstream`
+        ];
+        let pdf = '%PDF-1.4\n';
+        const offsets = [0];
+        objects.forEach((object, index) => {
+          offsets.push(pdf.length);
+          pdf += `${index + 1} 0 obj\n${object}\nendobj\n`;
+        });
+        const xref = pdf.length;
+        pdf += `xref\n0 6\n0000000000 65535 f \n${offsets.slice(1).map(offset =>
+          `${String(offset).padStart(10, '0')} 00000 n \n`).join('')}`;
+        pdf += `trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`;
+        return new app.File([pdf], 'regressie.pdf', { type: 'application/pdf' });
+      }
       try {
         keys.forEach(key => localStorage.removeItem(key));
         let app = await loadApp();
@@ -44,6 +118,72 @@
         const content = () => doc.querySelector('.blokje-content');
         assert(isMode(doc, 'syllables'),
           'Lettergreepmodus is standaard');
+        const syllableCases = [
+          ['Nederland', ['Ne', 'der', 'land']],
+          ['robotje', ['ro', 'bot', 'je']],
+          ['gezellige', ['ge', 'zel', 'li', 'ge']],
+          ['tandwielen', ['tand', 'wie', 'len']],
+          ['knipperende', ['knip', 'pe', 'ren', 'de']],
+          ['Europa', ['Eu', 'ro', 'pa']],
+          ['vulkanen', ['vul', 'ka', 'nen']],
+          ['speelgoedwinkel', ['speel', 'goed', 'win', 'kel']],
+          ['aardrijkskundeles', ['aard', 'rijks', 'kun', 'de', 'les']],
+          ['zonne-energie', ['zon', 'ne-', 'e', 'ner', 'gie']],
+          ['NEDERLAND', ['NE', 'DER', 'LAND']],
+          ['RoBoTjE', ['Ro', 'BoT', 'jE']],
+          ['Nederland,', ['Ne', 'der', 'land,']],
+          ['Nederland.', ['Ne', 'der', 'land.']],
+          ['Nederland?', ['Ne', 'der', 'land?']],
+          ['Nederland!', ['Ne', 'der', 'land!']],
+          ["auto's", ["auto's"]],
+          ['oma’s', ['oma’s']],
+          ['zee-egel', ['zee-', 'e', 'gel']],
+          ['kat', ['kat']],
+          ['school', ['school']],
+          ['a', ['a']],
+          ['xyz', ['xyz']],
+          ['qzxamen', ['qzxamen']],
+          ['aia', ['aia']],
+          ['bloramen', ['blo', 'ra', 'men']],
+          ['boeken', ['boe', 'ken']],
+          ['ballen', ['bal', 'len']],
+          ['zingen', ['zin', 'gen']],
+          ['banken', ['ban', 'ken']],
+          ['lachen', ['la', 'chen']],
+          ['lichten', ['lich', 'ten']],
+          ['wassen', ['was', 'sen']],
+          ['beschrijven', ['be', 'schrij', 'ven']],
+          ['boompje', ['boom', 'pje']],
+          ['schooltje', ['school', 'tje']],
+          ['zekerheid', ['ze', 'ker', 'heid']],
+          ['eerlijk', ['eer', 'lijk']],
+          ['moeilijke', ['moei', 'lij', 'ke']],
+          ['robotjes', ['ro', 'bot', 'jes']],
+          ['vriendelijk', ['vrien', 'de', 'lijk']],
+          ['vriendelijke', ['vrien', 'de', 'lij', 'ke']],
+          ['reëel', ['re', 'ëel']],
+          ['e\u0301nergie', ['e\u0301nergie']]
+        ];
+        for (const [word, expected] of syllableCases) {
+          const actual = api.splitDutchSyllables(word);
+          assert(JSON.stringify(actual) === JSON.stringify(expected), `Geschreven lettergrepen: ${word}`);
+          assert(actual.join('') === word, `Hoofdletters en tekens blijven intact: ${word}`);
+        }
+        const quotedParagraphs = '"Eerste zin." Tweede zin! Derde zin? Vierde zin. Vijfde zin.\n\nAndere alinea.';
+        const sentenceBlocks = api.splitIntoReadingBlocks(quotedParagraphs);
+        assert(sentenceBlocks.join(' ').replace(/\s+/g, ' ') === quotedParagraphs.replace(/\s+/g, ' '),
+          'Tekstopdeling verliest geen tekst na geciteerde zinnen');
+        assert(sentenceBlocks[sentenceBlocks.length - 1] === 'Andere alinea.',
+          'Alineagrens blijft een afzonderlijk blok');
+        doc.getElementById('text-input').value = 'Nederland, robotje. Europa? Vulkanen!';
+        doc.getElementById('btn-convert').click();
+        assert(JSON.stringify(Array.from(content().querySelectorAll('.word-group')).map(word => word.textContent)) ===
+          JSON.stringify(['Nederland,', 'robotje.', 'Europa?', 'Vulkanen!']),
+          'Zinsbegin en leestekens blijven binnen de volledige woordwrapper');
+        assert(Array.from(content().querySelectorAll('.word-group'))
+          .every(word => /[,.?!]$/.test(word.querySelector('.syl:last-child').textContent)),
+          'Komma, punt, vraagteken en uitroepteken zitten aan de laatste lettergreep');
+        doc.getElementById('btn-clear').click();
         assert(api.getActiveImportSection() === 'text', 'Tekst plakken is standaard open');
         assert(doc.querySelector('.input-card').firstElementChild.matches('.import-navigation') &&
           doc.querySelectorAll('.import-navigation button').length === 4 &&
@@ -60,6 +200,22 @@
           assert(api.getActiveImportSection() === source, `Herhaald klikken sluit ${source} niet`);
           assert(localStorage.getItem(keys[2]) === source, `Bronkeuze wordt opgeslagen: ${source}`);
         }
+        doc.getElementById('btn-make-bookmarklet').click();
+        const bookmarklet = api.generateBookmarkletCode();
+        assert(doc.getElementById('bookmarklet-result').style.display === 'flex' &&
+          doc.getElementById('bookmarklet-link').getAttribute('href') === bookmarklet.code &&
+          bookmarklet.code.startsWith('javascript:') && bookmarklet.code.includes('encodeURIComponent(text)'),
+          'Bookmarklet BETA genereert de bestaande tekstimportlink');
+        const queryText = 'Nederland en school.\n\nNieuws voor iedereen!';
+        app.history.replaceState(null, '', `?text=${encodeURIComponent(queryText)}&title=Regressie&url=https%3A%2F%2Fexample.org`);
+        api.handleUrlQueryParams();
+        assert(doc.getElementById('text-input').value === queryText &&
+          doc.querySelectorAll('.reading-unit').length === 2 &&
+          doc.getElementById('source-title-display').textContent === 'Regressie',
+          'Bookmarklet-queryimport behoudt tekst, alineas en bronvermelding');
+        app.history.replaceState(null, '', '../index.html');
+        doc.getElementById('btn-clear').click();
+        doc.getElementById('tab-btn-text').click();
         assert(doc.querySelectorAll('.web-suggestions [data-url]').length === 2 &&
           Array.from(doc.querySelectorAll('.web-suggestions [data-url]'))
             .every(button => button.dataset.url.startsWith('https://nl.wikipedia.org/wiki/')) &&
@@ -154,6 +310,17 @@
             'Documentupload gebruikt de actieve Klankmodus');
         } finally {
           api.DocumentProcessor.extractText = originalExtract;
+        }
+        const uploadText = 'school schrijfboek nieuws leeuw vriendelijk ruimteschip';
+        for (const file of [createDocx(app, uploadText), createPdf(app, uploadText)]) {
+          const extracted = await api.DocumentProcessor.extractText(file);
+          assert(extracted.text === uploadText && extracted.wordCount === 6,
+            `Echte bibliotheekextractie: ${file.name}`);
+          await api.handleFileUpload(file);
+          assert(doc.getElementById('text-input').value === uploadText &&
+            content().querySelectorAll('.word-group').length === 6 &&
+            doc.getElementById('upload-success').style.display === 'flex',
+            `Echte upload behoudt tekst en klankmodus: ${file.name}`);
         }
         doc.getElementById('btn-clear').click();
         choose('syllables');
@@ -272,6 +439,31 @@
           doc.getElementById('profile-word-spacing').value = value;
           doc.getElementById('profile-word-spacing').dispatchEvent(new app.Event('input'));
         };
+        for (const font of ['Lexend', 'OpenDyslexic', 'Atkinson Hyperlegible', 'Verdana', 'Arial']) {
+          doc.getElementById('profile-font').value = font;
+          doc.getElementById('profile-font').dispatchEvent(new app.Event('change'));
+          assert(app.getComputedStyle(content()).fontFamily.includes(font) &&
+            JSON.parse(localStorage.getItem(keys[0])).font === font,
+            `Lettertypekeuze en opslag: ${font}`);
+        }
+        doc.getElementById('profile-font-size').value = '24';
+        doc.getElementById('profile-font-size').dispatchEvent(new app.Event('input'));
+        assert(app.getComputedStyle(content()).fontSize === '24px' &&
+          JSON.parse(localStorage.getItem(keys[0])).fontSize === 24,
+          'Tekstgrootte werkt direct en wordt opgeslagen');
+        doc.getElementById('profile-line-height').value = '2.2';
+        doc.getElementById('profile-line-height').dispatchEvent(new app.Event('input'));
+        assert(doc.getElementById('val-line-height').textContent === '2.2×' &&
+          JSON.parse(localStorage.getItem(keys[0])).lineHeight === 2.2,
+          'Regelafstand werkt direct en wordt opgeslagen');
+        for (const theme of ['creme', 'blauw', 'groen', 'geel', 'donker']) {
+          doc.getElementById(`theme-${theme}`).click();
+          assert(doc.body.dataset.theme === theme &&
+            doc.body.classList.contains('dark-mode') === (theme === 'donker') &&
+            JSON.parse(localStorage.getItem(keys[0])).theme === theme,
+            `Achtergrondkleur, donkere modus en opslag: ${theme}`);
+        }
+        doc.getElementById('btn-reset-profile').click();
         assert(doc.getElementById('profile-line-height').closest('.profile-item').nextElementSibling
           .contains(doc.getElementById('profile-word-spacing')),
           'Woordafstand staat direct onder Regelafstand');
@@ -294,7 +486,7 @@
             toggle.dispatchEvent(new app.Event('change'));
             setSpacing('0.8');
             const output = content();
-            const firstWord = output.querySelector(mode === 'sounds' ? '.sound-word' : '.syl-word');
+            const firstWord = output.querySelector('.word-group');
             const secondWord = firstWord.nextElementSibling;
             const wordGap = () => {
               const first = doc.createRange();
@@ -305,13 +497,13 @@
             };
             const narrow = wordGap();
             const groupWidth = firstWord.firstElementChild.getBoundingClientRect().width;
-            setSpacing('3.0');
+            setSpacing('2.4');
             const wide = wordGap();
-            assert(wide - narrow > 10, `Woordafstand vergroot de gemeten ruimte direct in ${mode}/${layout}`);
+            assert(wide - narrow >= 20, `Woordafstand vergroot de gemeten ruimte minstens 20px in ${mode}/${layout}`);
             assert(content() === output, `Woordafstand verwerkt de tekst niet opnieuw in ${mode}/${layout}`);
             assert(firstWord.firstElementChild.getBoundingClientRect().width === groupWidth,
               `Woordafstand verandert de bouwstenen niet in ${mode}/${layout}`);
-            assert(doc.getElementById('val-word-spacing').textContent === '3.0×',
+            assert(doc.getElementById('val-word-spacing').textContent === '2.4×',
               `Woordafstandbadge volgt de slider in ${mode}/${layout}`);
           }
         }
@@ -376,6 +568,15 @@
           await new Promise(resolve => app.setTimeout(resolve, 0));
           assert(copied === blockTexts.map((text, i) => `[Blokje ${i + 1}]\n${text}`).join('\n\n'),
             'Kopieren van alineablokken behoudt bestaande bloknummers');
+          const firstBlock = doc.querySelector('.lees-blokje');
+          firstBlock.click();
+          assert(firstBlock.classList.contains('active-focus') &&
+            doc.getElementById('output-area').classList.contains('has-focus'),
+            'Leeslampje werkt in alineablokken');
+          firstBlock.dispatchEvent(new app.KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+          assert(!firstBlock.classList.contains('active-focus') &&
+            !doc.getElementById('output-area').classList.contains('has-focus'),
+            'Leeslampje kan via toetsenbord worden uitgeschakeld');
         } finally {
           if (writeDescriptor) Object.defineProperty(clipboard, 'writeText', writeDescriptor);
           else delete clipboard.writeText;
@@ -413,6 +614,13 @@
           assert(speaking && cancelled === 2,
             'Vertraagd audio-einde van vorige weergave onderbreekt nieuwe audio niet');
           doc.getElementById('btn-stop-audio').click();
+          doc.getElementById('btn-read-all').click();
+          const readingStart = spoken.length - 1;
+          spoken[readingStart].onend();
+          assert(spoken[readingStart].text === blockTexts[0] &&
+            spoken[readingStart + 1].text === blockTexts[1],
+            'Alles voorlezen gaat in alineablokken door naar het volgende blok');
+          doc.getElementById('btn-stop-audio').click();
         } finally {
           speechKeys.forEach((key, index) => {
             if (speechDescriptors[index]) Object.defineProperty(speech, key, speechDescriptors[index]);
@@ -444,7 +652,7 @@
           doc.querySelector('[data-reading-layout="blocks"]').getAttribute('aria-pressed') === 'true',
           'Profielherstel reset woordafstand en herstelt alineablokken direct');
         app.LeesBlokjes.applyProfile({ ...stored, wordSpacing: 99 });
-        assert(Number(doc.getElementById('profile-word-spacing').value) === 3, 'Woordafstand is begrensd op 3.0');
+        assert(Number(doc.getElementById('profile-word-spacing').value) === 2.4, 'Woordafstand is begrensd op 2.4');
         app.LeesBlokjes.applyProfile({ ...stored, wordSpacing: 0.1 });
         assert(doc.getElementById('profile-word-spacing').value === '0.8', 'Woordafstand is begrensd op 0.8');
         localStorage.setItem(keys[0], JSON.stringify({ readingMode: 'sounds', showSyllables: true, colorSyllables: true }));
@@ -463,8 +671,10 @@
           assert(app.document.documentElement.scrollWidth <= app.innerWidth &&
             Array.from(doc.querySelectorAll('.import-source-button'))
               .every(button => button.scrollWidth <= button.clientWidth) &&
-            Array.from(output.querySelectorAll('.sound-word')).every(word => word.scrollWidth <= output.clientWidth + 1),
-            `Klankbouwstenen en navigatie passen zonder horizontale overflow op ${width}px`);
+            app.getComputedStyle(output).overflowX === 'auto' &&
+            Array.from(output.querySelectorAll('.sound-word'))
+              .every(word => app.getComputedStyle(word).flexWrap === 'nowrap'),
+            `Hele woorden blijven gegroepeerd met lokaal scrollen voor te brede woorden op ${width}px`);
         }
         frame.style.width = '1366px';
         frame.style.height = '768px';
@@ -478,6 +688,55 @@
         const headerRect = doc.querySelector('.app-header').getBoundingClientRect();
         assert(headerRect.height + inputRect.height + (outputRect.top - inputRect.bottom) < app.innerHeight - 100,
           'Op een laptop van 1366x768 blijft uitvoerruimte zichtbaar onder de compacte invoer');
+        for (const [width, height] of [[1920, 1080], [1366, 768], [390, 844]]) {
+          frame.style.width = `${width}px`;
+          frame.style.height = `${height}px`;
+          await new Promise(resolve => app.requestAnimationFrame(resolve));
+          for (const layout of ['blocks', 'continuous']) {
+            chooseLayout(layout);
+            for (const mode of ['normal', 'syllables', 'sounds']) {
+              doc.getElementById('text-input').value = 'aa aa\n\nschool schrijfboek nieuws leeuw vriendelijk ruimteschip.';
+              choose(mode === 'sounds' ? 'sounds' : 'syllables');
+              const toggle = doc.getElementById('toggle-show-syllables');
+              toggle.checked = mode !== 'normal';
+              toggle.dispatchEvent(new app.Event('change'));
+              const output = doc.getElementById('output-area');
+              const words = Array.from(output.querySelectorAll('.word-group'));
+              const gap = () => words[1].getBoundingClientRect().left - words[0].getBoundingClientRect().right;
+              let previousGap = -1;
+              const groupWidths = words.map(word => word.getBoundingClientRect().width);
+              for (const preset of [0.8, 1, 1.4, 1.8, 2.4]) {
+                setSpacing(String(preset));
+                const currentGap = gap();
+                assert(currentGap > previousGap &&
+                  Math.abs(parseFloat(app.getComputedStyle(words[0]).marginInlineEnd) - preset * 0.65 * 20) < 0.1,
+                  `Meetbare woordafstand ${preset}x op ${width}x${height}, ${mode}/${layout}`);
+                previousGap = currentGap;
+              }
+              assert(words.every((word, index) => word.getBoundingClientRect().width === groupWidths[index]) &&
+                words.every(word => app.getComputedStyle(word).flexWrap === 'nowrap'),
+                `Alleen afstand tussen volledige woorden verandert op ${width}x${height}, ${mode}/${layout}`);
+              assert(doc.querySelectorAll('.reading-unit').length === (layout === 'blocks' ? 2 : 1) &&
+                doc.querySelectorAll('[data-reading-layout][aria-pressed="true"]').length === 1,
+                `Verschillende exclusieve DOM-structuren op ${width}x${height}, ${mode}/${layout}`);
+              assert(words[words.length - 1].textContent === 'ruimteschip.' &&
+                doc.documentElement.scrollWidth <= app.innerWidth,
+                `Leesteken zit vast en pagina heeft geen overflow op ${width}x${height}, ${mode}/${layout}`);
+              if (mode === 'sounds') {
+                assert(Array.from(output.querySelectorAll('.sound')).every(group =>
+                  app.getComputedStyle(group).backgroundColor === expectedColors[
+                    Object.keys(expectedColors).find(color => group.classList.contains(`sound-${color}`))]),
+                  `Leeskaartkleuren ongewijzigd op ${width}x${height}, ${layout}`);
+              }
+              const firstParagraph = content();
+              firstParagraph.style.width = `${words[0].getBoundingClientRect().width + 10}px`;
+              assert(words[1].getBoundingClientRect().top > words[0].getBoundingClientRect().top &&
+                words[0].getBoundingClientRect().width === groupWidths[0],
+                `Een volledig woord verhuist naar de volgende regel op ${width}x${height}, ${mode}/${layout}`);
+              firstParagraph.style.removeProperty('width');
+            }
+          }
+        }
         frame.style.width = '100%';
         frame.style.height = '800px';
         results.textContent = `${checks.join('\n')}\n\n${checks.length} tests geslaagd.`;

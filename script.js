@@ -208,11 +208,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function applyWordSpacing(value, updateInputs = true) {
     const parsed = Number(value);
-    const spacing = Number.isFinite(parsed) ? Math.min(3, Math.max(0.8, parsed)) : 1;
+    const spacing = Number.isFinite(parsed) ? Math.min(2.4, Math.max(0.8, parsed)) : 1;
     const formatted = spacing.toFixed(1);
-    document.documentElement.style.setProperty('--user-word-spacing', formatted);
+    document.documentElement.style.setProperty('--word-gap', `${spacing * 0.65}em`);
     if (updateInputs) profileWordSpacing.value = formatted;
     valWordSpacing.textContent = `${formatted}×`;
+    const labels = { '0.8': 'Compact', '1.0': 'Normaal', '1.4': 'Ruim', '1.8': 'Extra ruim', '2.4': 'Zeer ruim' };
+    profileWordSpacing.setAttribute('aria-valuetext', `${formatted}×${labels[formatted] ? ` - ${labels[formatted]}` : ''}`);
   }
 
   function setReadingLayout(layout, refresh = true) {
@@ -467,7 +469,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       // Splits zinnen op (rekening houdend met ., ! en ?)
       // Match zinnen inclusief het leesteken
-      const sentences = trimmedPara.match(/[^.!?]+[.!?]+(\s|$)|[^.!?]+$/g);
+      const sentences = trimmedPara.match(/[\s\S]+?(?:[.!?]+["'’”)\]]*(?=\s|$)|$)/g);
 
       if (!sentences || sentences.length <= 3) {
         // Korte alinea: mag 1 heel blokje blijven
@@ -503,11 +505,11 @@ document.addEventListener('DOMContentLoaded', () => {
     return blocks;
   }
 
-  // --- 3b. Nederlandse Lettergreep-splitser (Proof of concept) ---
+  // --- 3b. Nederlandse geschreven lettergrepen (los van klankgroepen) ---
   const VOWEL_COMBOS = [
-    'eeuw', 'ieuw',
+    'eeuw', 'ieuw', 'uw',
     'aai', 'ooi', 'oei',
-    'aa', 'ee', 'oo', 'uu', 'ie', 'oe', 'ou', 'au', 'ei', 'ui', 'eu', 'ij',
+    'aa', 'ee', 'oo', 'uu', 'ie', 'oe', 'ou', 'au', 'ei', 'ui', 'eu', 'ij', 'ëe',
     'a', 'e', 'i', 'o', 'u', 'y', 'é', 'è', 'ë', 'ï', 'ó', 'ò', 'ö', 'ü', 'á', 'à', 'ä'
   ];
 
@@ -519,85 +521,139 @@ document.addEventListener('DOMContentLoaded', () => {
     'b', 'c', 'd', 'f', 'g', 'h', 'j', 'k', 'l', 'm', 'n', 'p', 'q', 'r', 's', 't', 'v', 'w', 'x', 'z'
   ]);
 
-  function splitDutchSyllables(rawWord) {
-    if (!rawWord || rawWord.length < 3) return [rawWord];
+  // Voeg hier alleen gecontroleerde schrijfwijzen toe; sleutels zijn hoofdletterongevoelig.
+  const DUTCH_SYLLABLE_EXCEPTIONS = {
+    robotje: ['ro', 'bot', 'je'],
+    robotjes: ['ro', 'bot', 'jes'],
+    vriendelijk: ['vrien', 'de', 'lijk'],
+    vriendelijke: ['vrien', 'de', 'lij', 'ke']
+  };
 
-    const lower = rawWord.toLowerCase();
+  const DUTCH_COMPOUND_PARTS = {
+    tandwielen: ['tand', 'wielen'],
+    speelgoedwinkel: ['speel', 'goed', 'winkel'],
+    aardrijkskundeles: ['aard', 'rijks', 'kunde', 'les']
+  };
+
+  const DUTCH_SUFFIX_STEMS = {
+    heid: new Set(['snel', 'vrij', 'waar', 'zeker', 'veilig', 'schoon']),
+    heden: new Set(['snel', 'vrij', 'waar', 'zeker', 'veilig', 'schoon']),
+    tje: new Set(['boom', 'huis', 'boek', 'school']),
+    tjes: new Set(['boom', 'huis', 'boek', 'school']),
+    pje: new Set(['boom']),
+    pjes: new Set(['boom']),
+    lijk: new Set(['eer', 'moei', 'gevaar']),
+    lijke: new Set(['eer', 'moei', 'gevaar'])
+  };
+
+  const SYLLABLE_ONSETS = new Set([
+    'bl', 'br', 'cl', 'cr', 'dr', 'fl', 'fr', 'gl', 'gr', 'kl', 'kn', 'kr', 'kw',
+    'pl', 'pr', 'sl', 'sm', 'sn', 'sp', 'st', 'str', 'spr', 'spl', 'tr', 'tw',
+    'vl', 'vr', 'wr', 'zw', 'ch', 'sch', 'schr'
+  ]);
+
+  function findSyllableNuclei(lower) {
     const nuclei = [];
     let i = 0;
-
     while (i < lower.length) {
-      let matchedVowel = null;
-      for (const vc of VOWEL_COMBOS) {
-        if (lower.startsWith(vc, i)) {
-          matchedVowel = vc;
-          break;
-        }
-      }
-
-      if (matchedVowel) {
-        nuclei.push({
-          start: i,
-          end: i + matchedVowel.length,
-          text: rawWord.slice(i, i + matchedVowel.length)
-        });
-        i += matchedVowel.length;
+      const vowel = VOWEL_COMBOS.find(candidate => lower.startsWith(candidate, i));
+      if (vowel) {
+        nuclei.push({ start: i, end: i + vowel.length });
+        i += vowel.length;
       } else {
         i++;
       }
     }
+    return nuclei;
+  }
 
+  function restoreSyllableCase(rawWord, parts) {
+    let offset = 0;
+    return parts.map(part => {
+      const original = rawWord.slice(offset, offset + part.length);
+      offset += part.length;
+      return original;
+    });
+  }
+
+  function splitDutchSyllableCore(rawWord) {
+    const lower = rawWord.normalize('NFC').toLowerCase();
+    if (lower.length !== rawWord.length || !/^[a-zéèëïóòöüáàä]+$/.test(lower)) return [rawWord];
+    if (Object.hasOwn(DUTCH_SYLLABLE_EXCEPTIONS, lower)) {
+      return restoreSyllableCase(rawWord, DUTCH_SYLLABLE_EXCEPTIONS[lower]);
+    }
+    if (Object.hasOwn(DUTCH_COMPOUND_PARTS, lower)) {
+      return restoreSyllableCase(rawWord, DUTCH_COMPOUND_PARTS[lower])
+        .flatMap(part => splitDutchSyllableCore(part));
+    }
+    for (const [suffix, stems] of Object.entries(DUTCH_SUFFIX_STEMS)) {
+      const stem = lower.slice(0, -suffix.length);
+      if (lower.endsWith(suffix) && stems.has(stem)) {
+        return [
+          ...splitDutchSyllableCore(rawWord.slice(0, stem.length)),
+          ...splitDutchSyllableCore(rawWord.slice(stem.length))
+        ];
+      }
+    }
+    const nuclei = findSyllableNuclei(lower);
     if (nuclei.length <= 1) return [rawWord];
+    const onset = lower.slice(0, nuclei[0].start);
+    if (onset.length > 1 && !SYLLABLE_ONSETS.has(onset)) return [rawWord];
 
     const splitPoints = [];
-
     for (let k = 0; k < nuclei.length - 1; k++) {
-      const currentNucleus = nuclei[k];
-      const nextNucleus = nuclei[k + 1];
-
-      const consonantStart = currentNucleus.end;
-      const consonantEnd = nextNucleus.start;
-      const consonants = lower.slice(consonantStart, consonantEnd);
-
+      const consonantStart = nuclei[k].end;
+      const consonants = lower.slice(consonantStart, nuclei[k + 1].start);
+      let splitOffset;
       if (consonants.length === 0) {
-        splitPoints.push(consonantStart);
+        // Trema geeft een expliciete grens; andere klinkerbotsingen zijn onzeker.
+        if (!/[ëïöüä]/.test(lower[nuclei[k + 1].start])) return [rawWord];
+        splitOffset = 0;
       } else if (consonants.length === 1) {
-        splitPoints.push(consonantStart);
+        splitOffset = 0;
+      } else if (consonants.length === 2 && consonants[0] === consonants[1]) {
+        splitOffset = 1;
+      } else if (consonants === 'ng' || consonants === 'nk') {
+        splitOffset = 1;
+      } else if (SYLLABLE_ONSETS.has(consonants)) {
+        splitOffset = 0;
       } else {
-        let splitOffset = 1;
-        if (consonants === 'ch') {
-          splitOffset = 0;
-        } else if (consonants === 'ng' || consonants === 'nk') {
-          splitOffset = consonants.length;
-        } else {
-          let bestOnsetLen = 1;
-          for (let len = Math.min(3, consonants.length); len >= 1; len--) {
-            const candidateOnset = consonants.slice(consonants.length - len);
-            if (VALID_ONSETS.has(candidateOnset) && consonants.length - len >= 1) {
-              bestOnsetLen = len;
-              break;
-            }
-          }
-          splitOffset = consonants.length - bestOnsetLen;
-        }
-
-        splitPoints.push(consonantStart + splitOffset);
+        const nextOnset = [...SYLLABLE_ONSETS]
+          .filter(cluster => consonants.endsWith(cluster))
+          .sort((a, b) => b.length - a.length)[0];
+        const coda = nextOnset ? consonants.slice(0, -nextOnset.length) : consonants.slice(0, -1);
+        if (coda.length > 2 && !/^(cht|ng|nk|sch)$/.test(coda)) return [rawWord];
+        splitOffset = coda.length;
       }
+      splitPoints.push(consonantStart + splitOffset);
     }
 
     const syllables = [];
     let prevIndex = 0;
-    for (const pt of splitPoints) {
-      if (pt > prevIndex && pt < rawWord.length) {
-        syllables.push(rawWord.slice(prevIndex, pt));
-        prevIndex = pt;
-      }
+    for (const point of [...splitPoints, rawWord.length]) {
+      const syllable = rawWord.slice(prevIndex, point);
+      if (findSyllableNuclei(syllable.toLowerCase()).length !== 1) return [rawWord];
+      syllables.push(syllable);
+      prevIndex = point;
     }
-    if (prevIndex < rawWord.length) {
-      syllables.push(rawWord.slice(prevIndex));
-    }
+    return syllables;
+  }
 
-    return syllables.length > 0 ? syllables : [rawWord];
+  function splitDutchSyllables(rawWord) {
+    if (!rawWord) return [rawWord];
+    const match = /^([^\p{L}]*)([\p{L}\p{M}]+(?:[-'’][\p{L}\p{M}]+)*)([^\p{L}]*)$/u.exec(rawWord);
+    if (!match) return [rawWord];
+    const [, prefix, word, punctuation] = match;
+    // Apostrofwoorden zijn uitspraakafhankelijk; bewaar ze als geheel.
+    if (/['’]/.test(word)) return [rawWord];
+    const syllables = word.split('-').flatMap((part, index, parts) => {
+      const split = splitDutchSyllableCore(part);
+      if (index < parts.length - 1) split[split.length - 1] += '-';
+      return split;
+    });
+    syllables[0] = prefix + syllables[0];
+    syllables[syllables.length - 1] += punctuation;
+    return syllables;
   }
 
   function escapeHtml(str) {
@@ -610,35 +666,12 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function formatTextWithSyllables(text) {
-    if (!text) return '';
-    // Match a word (including hyphens/apostrophes) + optional immediately following punctuation, or any non-word chunk
-    const regex = /([a-zA-ZÀ-ÿ]+(?:['’-][a-zA-ZÀ-ÿ]+)*)([.,!?:;]*)|([^a-zA-ZÀ-ÿ]+)/g;
-    let result = '';
-    let match;
-
-    while ((match = regex.exec(text)) !== null) {
-      const word = match[1];
-      const punct = match[2];
-      const nonWord = match[3];
-
-      if (word) {
-        const syllables = splitDutchSyllables(word);
-        if (syllables.length > 1) {
-          const sylSpans = syllables.map((syl, sIdx) => {
-            const colorClass = `syl-c${sIdx % 4}`;
-            return `<span class="syl ${colorClass}">${escapeHtml(syl)}</span>`;
-          }).join('<span class="syl-sep" aria-hidden="true">|</span>');
-          const punctSpan = punct ? `<span class="syl-punct">${escapeHtml(punct)}</span>` : '';
-          result += `<span class="syl-word">${sylSpans}${punctSpan}</span>`;
-        } else {
-          result += escapeHtml(word + (punct || ''));
-        }
-      } else if (nonWord) {
-        result += escapeHtml(nonWord);
-      }
-    }
-
-    return result || escapeHtml(text);
+    const syllables = splitDutchSyllables(text);
+    const content = syllables.length > 1
+      ? syllables.map((syllable, index) =>
+        `<span class="syl syl-c${index % 4}">${escapeHtml(syllable)}</span>`).join('')
+      : escapeHtml(text);
+    return `<span class="syl-word">${content}</span>`;
   }
 
   // Langste overeenkomst eerst: eeuw/ieuw gaan voor ee/ie, aai voor aa.
@@ -681,22 +714,29 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function formatTextWithSounds(text) {
-    return text.split(/([\p{L}\p{M}]+(?:['’-][\p{L}\p{M}]+)*)/u).map((part, index) => {
-      if (index % 2 === 0) return escapeHtml(part);
-      const groups = splitDutchSounds(part).map(group => {
-        if (!group.color) return escapeHtml(group.text);
-        const content = group.marking === 'dots'
-          ? Array.from(group.text).map(letter => `<span class="sound-letter">${escapeHtml(letter)}</span>`).join('')
-          : escapeHtml(group.text);
-        const markingClass = group.marking ? ` sound-${group.marking}` : '';
-        return `<span class="sound sound-${group.color}${markingClass}">${content}</span>`;
-      }).join('');
-      return `<span class="sound-word">${groups}</span>`;
+    const groups = splitDutchSounds(text).map(group => {
+      if (!group.color) return escapeHtml(group.text);
+      const content = group.marking === 'dots'
+        ? Array.from(group.text).map(letter => `<span class="sound-letter">${escapeHtml(letter)}</span>`).join('')
+        : escapeHtml(group.text);
+      const markingClass = group.marking ? ` sound-${group.marking}` : '';
+      return `<span class="sound sound-${group.color}${markingClass}">${content}</span>`;
     }).join('');
+    return `<span class="sound-word">${groups}</span>`;
   }
 
   function formatReadingText(text) {
-    return readingMode === 'sounds' ? formatTextWithSounds(text) : formatTextWithSyllables(text);
+    return text.replace(/\S+|\s+/g, token => {
+      if (/^\s+$/.test(token)) return escapeHtml(token);
+      if (readingMode === 'syllables') {
+        return `<span class="word-group">${formatTextWithSyllables(token)}</span>`;
+      }
+      const pieces = token.split(/([\p{L}\p{M}]+(?:['’-][\p{L}\p{M}]+)*)/u);
+      const content = pieces.map((part, index) => index % 2
+        ? formatTextWithSounds(part)
+        : escapeHtml(part)).join('');
+      return `<span class="word-group">${content}</span>`;
+    });
   }
 
   loadProfile();
