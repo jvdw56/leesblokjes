@@ -24,3 +24,13 @@ Begrippenlijst
 Moeilijke woorden markeren
 Automatisch voorlezen
 Samenvatting genereren
+v0.8
+Leesmodus voor websites
+Bookmarklet
+Tekst uit huidige pagina ophalen
+v0.9
+Chrome extensie
+Edge extensie
+Firefox extensie
+v1.0
+LeesBlokjes openen vanaf iedere website
