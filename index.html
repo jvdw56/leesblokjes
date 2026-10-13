@@ -212,7 +212,26 @@
             <span class="experimental-desc">Maakt lange woorden minder moeilijk door ze op te knippen</span>
           </div>
 
-          <div class="toggles-grid">
+          <fieldset class="reading-mode-picker">
+            <legend class="profile-label-title">Leesmodus</legend>
+            <label><input type="radio" name="reading-mode" value="syllables" checked> Lettergrepen</label>
+            <label><input type="radio" name="reading-mode" value="sounds"> Klanken <span class="badge-experimental">🔤 beta</span></label>
+          </fieldset>
+
+          <div id="sound-mode-info" class="sound-mode-info" hidden>
+            <p>Klankmodus (beta): bouwstenen volgens de leeskaart.</p>
+            <ul class="sound-legend">
+              <li><span class="sound sound-green">a e i o u</span> Groen</li>
+              <li><span class="sound sound-yellow">aa ee oo uu</span> Geel</li>
+              <li><span class="sound sound-orange">ij ei ou au ie oe eu ui</span> Oranje</li>
+              <li><span class="sound sound-white sound-underline">aai ooi oei</span> Wit: dubbele onderstreping</li>
+              <li><span class="sound sound-white sound-dots"><span class="sound-letter">e</span><span class="sound-letter">e</span><span class="sound-letter">u</span><span class="sound-letter">w</span></span> Wit: eeuw, ieuw, uw met punten</li>
+              <li><span class="sound sound-blue">schr</span> Blauw: medeklinkers en clusters</li>
+            </ul>
+            <p class="profile-label-hint">Herkent geschreven klankgroepen, niet de uitspraak. Klemtoon, leenwoorden en lettergreepgrenzen kunnen afwijken.</p>
+          </div>
+
+          <div id="syllable-options" class="toggles-grid">
             <!-- Optie 5: Lettergrepen tonen -->
             <label class="toggle-control" for="toggle-show-syllables">
               <div class="toggle-info">

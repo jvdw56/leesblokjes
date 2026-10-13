@@ -35,6 +35,10 @@ document.addEventListener('DOMContentLoaded', () => {
   // Optie Toggles (Experimentele dyslexiemodus)
   const toggleShowSyllables = document.getElementById('toggle-show-syllables');
   const toggleColorSyllables = document.getElementById('toggle-color-syllables');
+  const readingModeRadios = document.querySelectorAll('input[name="reading-mode"]');
+  const syllableOptions = document.getElementById('syllable-options');
+  const soundModeInfo = document.getElementById('sound-mode-info');
+  let readingMode = 'syllables';
 
   // --- DOM Elementen voor Document Upload ---
   const fileInput = document.getElementById('file-input');
@@ -113,7 +117,8 @@ document.addEventListener('DOMContentLoaded', () => {
     lineHeight: 1.8,
     theme: 'creme',
     showSyllables: true,
-    colorSyllables: true
+    colorSyllables: true,
+    readingMode: 'syllables'
   };
 
   function applyProfile(profile, updateInputs = true) {
@@ -166,8 +171,22 @@ document.addEventListener('DOMContentLoaded', () => {
     if (updateInputs && toggleColorSyllables) {
       toggleColorSyllables.checked = colorSyl;
     }
-    document.body.classList.toggle('show-syllables', showSyl);
-    document.body.classList.toggle('color-syllables', colorSyl);
+    setReadingMode(profile.readingMode, showSyl, colorSyl, updateInputs);
+  }
+
+  function setReadingMode(mode, showSyllables, colorSyllables, updateInputs = true) {
+    readingMode = mode === 'sounds' ? 'sounds' : 'syllables';
+    document.body.classList.toggle('sound-mode', readingMode === 'sounds');
+    document.body.classList.toggle('show-syllables', readingMode === 'syllables' && showSyllables);
+    document.body.classList.toggle('color-syllables', readingMode === 'syllables' && colorSyllables);
+    syllableOptions.hidden = readingMode === 'sounds';
+    soundModeInfo.hidden = readingMode !== 'sounds';
+    if (updateInputs) {
+      readingModeRadios.forEach(radio => { radio.checked = radio.value === readingMode; });
+    }
+    outputArea.querySelectorAll('.lees-blokje').forEach(article => {
+      article.querySelector('.blokje-content').innerHTML = formatReadingText(article.dataset.originalText);
+    });
   }
 
   function getActiveProfileFromUI() {
@@ -178,7 +197,8 @@ document.addEventListener('DOMContentLoaded', () => {
       lineHeight: profileLineHeight ? Number(profileLineHeight.value) : 1.8,
       theme: selectedTheme,
       showSyllables: Boolean(toggleShowSyllables?.checked),
-      colorSyllables: Boolean(toggleColorSyllables?.checked)
+      colorSyllables: Boolean(toggleColorSyllables?.checked),
+      readingMode
     };
   }
 
@@ -263,6 +283,14 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
+  readingModeRadios.forEach(radio => {
+    radio.addEventListener('change', () => {
+      if (!radio.checked) return;
+      setReadingMode(radio.value, toggleShowSyllables.checked, toggleColorSyllables.checked);
+      saveProfile();
+    });
+  });
+
   if (btnResetProfile) {
     btnResetProfile.addEventListener('click', () => {
       applyProfile(DEFAULT_PROFILE, true);
@@ -275,7 +303,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (toggleShowSyllables) {
     toggleShowSyllables.addEventListener('change', () => {
-      document.body.classList.toggle('show-syllables', toggleShowSyllables.checked);
+      document.body.classList.toggle('show-syllables', readingMode === 'syllables' && toggleShowSyllables.checked);
       saveProfile();
     });
   }
@@ -284,9 +312,9 @@ document.addEventListener('DOMContentLoaded', () => {
     toggleColorSyllables.addEventListener('change', () => {
       if (toggleColorSyllables.checked && !toggleShowSyllables.checked) {
         toggleShowSyllables.checked = true;
-        document.body.classList.add('show-syllables');
+        document.body.classList.toggle('show-syllables', readingMode === 'syllables');
       }
-      document.body.classList.toggle('color-syllables', toggleColorSyllables.checked);
+      document.body.classList.toggle('color-syllables', readingMode === 'syllables' && toggleColorSyllables.checked);
       saveProfile();
     });
   }
@@ -568,6 +596,60 @@ document.addEventListener('DOMContentLoaded', () => {
     return result || escapeHtml(text);
   }
 
+  // Langste overeenkomst eerst: eeuw/ieuw gaan voor ee/ie, aai voor aa.
+  const SOUND_GROUPS = [
+    { color: 'white', marking: 'dots', groups: ['eeuw', 'ieuw', 'uw'] },
+    { color: 'white', marking: 'underline', groups: ['aai', 'ooi', 'oei'] },
+    { color: 'yellow', groups: ['aa', 'ee', 'oo', 'uu'] },
+    { color: 'orange', groups: ['ij', 'ei', 'ou', 'au', 'ie', 'oe', 'eu', 'ui'] },
+    { color: 'green', groups: ['a', 'e', 'i', 'o', 'u'] }
+  ].flatMap(({ color, marking, groups }) => groups.map(text => ({ text, color, marking })))
+    .sort((a, b) => b.text.length - a.text.length);
+
+  function splitDutchSounds(word) {
+    const lower = word.replace(/[A-Z]/g, letter => letter.toLowerCase());
+    const sounds = [];
+    let index = 0;
+    while (index < word.length) {
+      const group = SOUND_GROUPS.find(candidate => lower.startsWith(candidate.text, index));
+      if (group) {
+        sounds.push({ text: word.slice(index, index + group.text.length), color: group.color, marking: group.marking });
+        index += group.text.length;
+        continue;
+      }
+      const consonants = /^[bcdfghjklmnpqrstvwxyz]+/.exec(lower.slice(index));
+      if (consonants) {
+        sounds.push({ text: word.slice(index, index + consonants[0].length), color: 'blue' });
+        index += consonants[0].length;
+      } else {
+        // Onbekende letters/tekens blijven intact, zonder een verzonnen klankkleur.
+        const character = String.fromCodePoint(word.codePointAt(index));
+        sounds.push({ text: character, color: null });
+        index += character.length;
+      }
+    }
+    return sounds;
+  }
+
+  function formatTextWithSounds(text) {
+    return text.split(/([\p{L}\p{M}]+(?:['’-][\p{L}\p{M}]+)*)/u).map((part, index) => {
+      if (index % 2 === 0) return escapeHtml(part);
+      const groups = splitDutchSounds(part).map(group => {
+        if (!group.color) return escapeHtml(group.text);
+        const content = group.marking === 'dots'
+          ? Array.from(group.text).map(letter => `<span class="sound-letter">${escapeHtml(letter)}</span>`).join('')
+          : escapeHtml(group.text);
+        const markingClass = group.marking ? ` sound-${group.marking}` : '';
+        return `<span class="sound sound-${group.color}${markingClass}">${content}</span>`;
+      }).join('');
+      return `<span class="sound-word">${groups}</span>`;
+    }).join('');
+  }
+
+  function formatReadingText(text) {
+    return readingMode === 'sounds' ? formatTextWithSounds(text) : formatTextWithSyllables(text);
+  }
+
   // --- 4. Blokjes Tonen in de UI ---
   function renderBlocks(blocks) {
     stopSpeaking();
@@ -622,10 +704,10 @@ document.addEventListener('DOMContentLoaded', () => {
       header.appendChild(badge);
       header.appendChild(actions);
 
-      // Inhoud (met lettergreep formatting)
+      // Inhoud volgens de gekozen leesmodus
       const content = document.createElement('div');
       content.className = 'blokje-content';
-      content.innerHTML = formatTextWithSyllables(text);
+      content.innerHTML = formatReadingText(text);
 
       article.appendChild(header);
       article.appendChild(content);
@@ -2137,6 +2219,7 @@ Op een dag vond Pip een geheimzinnig kaartje op de grond. Er stond op: 'De schat
     splitIntoReadingBlocks,
     renderBlocks,
     splitDutchSyllables,
+    splitDutchSounds,
     applyProfile,
     showToast
   };

@@ -2035,6 +2035,113 @@ body.dark-mode.show-syllables:not(.color-syllables) .syl {
   box-shadow: 0 2px 0 rgba(0, 0, 0, 0.4), 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
+/* Klankmodus gebruikt dezelfde bouwsteenvorm, met vaste leeskaartkleuren. */
+.reading-mode-picker {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 12px 16px;
+  margin-bottom: 14px;
+}
+
+.reading-mode-picker label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  cursor: pointer;
+}
+
+.reading-mode-picker input {
+  accent-color: var(--primary);
+}
+
+#syllable-options[hidden],
+#sound-mode-info[hidden] {
+  display: none;
+}
+
+.sound-mode-info {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.sound-legend {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  font-size: 0.84rem;
+}
+
+.sound-legend li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+body.sound-mode .blokje-content {
+  line-height: calc(var(--user-line-height) + 0.6);
+}
+
+.sound-word {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: nowrap;
+  gap: 5px;
+  margin: 8px 0 10px 1px;
+  vertical-align: baseline;
+  max-width: 100%;
+}
+
+.sound {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  padding: 4px 11px;
+  border: 1.5px solid #3c4652;
+  border-radius: 10px;
+  font-weight: 500;
+  line-height: 1.25;
+  color: #17212b;
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.16), 0 2px 4px rgba(0, 0, 0, 0.04);
+}
+
+.sound-green { background-color: #91b84c; }
+.sound-yellow { background-color: #f4dd27; }
+.sound-orange { background-color: #ef7545; }
+.sound-white { background-color: #ffffff; }
+.sound-blue { background-color: #49b5e5; }
+
+.sound-underline::after {
+  content: '';
+  position: absolute;
+  left: 11px;
+  right: 11px;
+  bottom: -8px;
+  height: 5px;
+  border-top: 1px solid var(--color-text-main);
+  border-bottom: 1px solid var(--color-text-main);
+}
+
+.sound-letter {
+  position: relative;
+}
+
+.sound-letter::after {
+  content: '';
+  position: absolute;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background-color: var(--color-text-main);
+  left: 50%;
+  bottom: -13px;
+  transform: translateX(-50%);
+}
+
 /* --------------------------------------------------------------------------
    Bookmarklet Sectie (LeesBlokjes op websites)
    -------------------------------------------------------------------------- */

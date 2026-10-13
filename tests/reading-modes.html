@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8">
+  <title>LeesBlokjes - leesmodustests</title>
+</head>
+<body>
+  <h1>Leesmodustests</h1>
+  <pre id="results">Tests worden uitgevoerd...</pre>
+  <iframe id="app" title="LeesBlokjes testapp" style="width: 100%; height: 800px;"></iframe>
+  <script>
+    (async () => {
+      const frame = document.getElementById('app');
+      const results = document.getElementById('results');
+      const keys = ['leesblokjes_leesprofiel', 'leesblokjes_instellingen'];
+      const saved = keys.map(key => localStorage.getItem(key));
+      const checks = [];
+      function assert(condition, message) {
+        if (!condition) throw new Error(message);
+        checks.push(`PASS: ${message}`);
+      }
+      function loadApp() {
+        return new Promise((resolve, reject) => {
+          frame.onload = () => {
+            if (!frame.contentWindow.LeesBlokjes) {
+              reject(new Error('LeesBlokjes API is niet geladen'));
+              return;
+            }
+            resolve(frame.contentWindow);
+          };
+          frame.src = '../index.html';
+        });
+      }
+      try {
+        keys.forEach(key => localStorage.removeItem(key));
+        let app = await loadApp();
+        let doc = app.document;
+        const api = app.LeesBlokjes;
+        const choose = mode => doc.querySelector(`input[name="reading-mode"][value="${mode}"]`).click();
+        const content = () => doc.querySelector('.blokje-content');
+        assert(doc.querySelector('input[name="reading-mode"][value="syllables"]').checked,
+          'Lettergreepmodus is standaard');
+        const groups = [
+          ['green', 'a e i o u'],
+          ['yellow', 'aa ee oo uu'],
+          ['orange', 'ij ei ou au ie oe eu ui'],
+          ['white', 'aai ooi oei eeuw ieuw uw'],
+          ['blue', 'b c d f g h j k l m n p q r s t v w x y z ng nk ch sch schr str br']
+        ];
+        for (const [color, words] of groups) {
+          for (const word of words.split(' ')) {
+            for (const input of [word, word.toUpperCase()]) {
+              const tokens = api.splitDutchSounds(input);
+              assert(tokens.length === 1 && tokens[0].text === input && tokens[0].color === color,
+                `Exacte klankgroep en kleur: ${input} (${color})`);
+            }
+          }
+        }
+        const examples = [
+          ['schroef', ['schr', 'oe', 'f']],
+          ['kraai', ['kr', 'aai']],
+          ['sneeuw', ['sn', 'eeuw']],
+          ['nieuw', ['n', 'ieuw']],
+          ['duw', ['d', 'uw']],
+          ['bank', ['b', 'a', 'nk']],
+          ['zingen', ['z', 'i', 'ng', 'e', 'n']]
+        ];
+        for (const [word, expected] of examples) {
+          assert(JSON.stringify(api.splitDutchSounds(word).map(group => group.text)) === JSON.stringify(expected),
+            `Langste groep eerst: ${word}`);
+        }
+        const text = "Nederland kraai sneeuw nieuw duw! AAI OOI OEI EEUW IEUW UW.\n'zomer' zee-egel café <img src=x> & 123.";
+        api.renderBlocks([text]);
+        const syllableHtml = content().innerHTML;
+        assert(content().querySelector('.syl') !== null, 'Bestaande lettergreepbouwstenen bestaan');
+        choose('sounds');
+        assert(content().textContent === text, 'Tekst, hoofdletters, leestekens en spaties blijven exact behouden');
+        assert(content().querySelector('img') === null, 'HTML uit invoer wordt niet uitgevoerd');
+        assert(!doc.body.classList.contains('show-syllables') && !doc.body.classList.contains('color-syllables'),
+          'Klankmodus is onafhankelijk van lettergreepkleuren');
+        assert(doc.getElementById('syllable-options').hidden && !doc.getElementById('sound-mode-info').hidden,
+          'Alleen de instellingen van de actieve modus worden getoond');
+        assert(content().querySelectorAll('.sound-underline').length === 4,
+          'Alle aai/ooi/oei-groepen hebben onderstreping');
+        assert(content().querySelectorAll('.sound-dots').length === 6,
+          'Alle eeuw/ieuw/uw-groepen hebben puntmarkeringen');
+        content().querySelectorAll('.sound-dots').forEach(group => {
+          assert(group.querySelectorAll('.sound-letter').length === group.textContent.length,
+            `Een punt per letter: ${group.textContent}`);
+        });
+        const underline = content().querySelector('.sound-underline');
+        const lineStyle = app.getComputedStyle(underline, '::after');
+        assert(parseFloat(lineStyle.borderTopWidth) > 0 && parseFloat(lineStyle.borderBottomWidth) > 0 &&
+          lineStyle.borderTopStyle === 'solid' && lineStyle.borderBottomStyle === 'solid',
+          'Onderstreping bestaat visueel uit twee lijnen');
+        const dotStyle = app.getComputedStyle(content().querySelector('.sound-letter'), '::after');
+        assert(dotStyle.width === '3px' && dotStyle.height === '3px' && dotStyle.content !== 'none',
+          'Punten zijn zichtbare CSS-markeringen zonder extra tekst');
+        const accent = api.splitDutchSounds('é')[0];
+        assert(accent.text === 'é' && accent.color === null, 'Onbekende letters krijgen geen verzonnen klankkleur');
+        assert(JSON.stringify(api.splitDutchSounds('İAA').map(group => [group.text, group.color])) ===
+          JSON.stringify([['İ', null], ['AA', 'yellow']]),
+          'Unicode-hoofdletters veranderen geen indices of klankgroepen');
+        assert(doc.querySelector('.lees-blokje').dataset.originalText === text,
+          'Originele tekst voor kopieren en voorlezen blijft intact');
+        const normalColors = Array.from(content().querySelectorAll('.sound')).map(group => app.getComputedStyle(group).backgroundColor);
+        doc.getElementById('theme-donker').click();
+        assert(JSON.stringify(normalColors) === JSON.stringify(
+          Array.from(content().querySelectorAll('.sound')).map(group => app.getComputedStyle(group).backgroundColor)),
+          'Klankkleuren blijven gelijk in donker thema');
+        choose('syllables');
+        assert(content().innerHTML === syllableHtml, 'Terugwisselen herstelt exact de bestaande lettergreepopmaak');
+        doc.getElementById('toggle-show-syllables').click();
+        doc.getElementById('toggle-color-syllables').click();
+        const showBefore = doc.getElementById('toggle-show-syllables').checked;
+        const colorBefore = doc.getElementById('toggle-color-syllables').checked;
+        choose('sounds');
+        assert(content().querySelector('.sound') !== null, 'Klankmodus werkt met lettergreeptonen uitgeschakeld');
+        choose('syllables');
+        assert(doc.getElementById('toggle-show-syllables').checked === showBefore &&
+          doc.getElementById('toggle-color-syllables').checked === colorBefore,
+          'Lettergreepvoorkeuren blijven bewaard tijdens wisselen');
+        choose('sounds');
+        assert(JSON.parse(localStorage.getItem(keys[0])).readingMode === 'sounds', 'Keuze wordt opgeslagen in localStorage');
+        app = await loadApp();
+        doc = app.document;
+        assert(doc.querySelector('input[name="reading-mode"][value="sounds"]').checked &&
+          doc.body.classList.contains('sound-mode'), 'Klankmodus wordt hersteld na herladen');
+        app.LeesBlokjes.renderBlocks(['meeuw']);
+        assert(doc.querySelector('.sound-dots').textContent === 'eeuw', 'Nieuwe uitvoer gebruikt de herstelde modus');
+        doc.getElementById('btn-reset-profile').click();
+        assert(doc.querySelector('input[name="reading-mode"][value="syllables"]').checked &&
+          !doc.querySelector('.blokje-content .sound'), 'Profiel herstellen schakelt bestaande uitvoer terug');
+        localStorage.setItem(keys[0], JSON.stringify({ showSyllables: false, colorSyllables: false, theme: 'groen' }));
+        app = await loadApp();
+        assert(app.document.querySelector('input[name="reading-mode"][value="syllables"]').checked &&
+          !app.document.getElementById('toggle-show-syllables').checked,
+          'Oude profielen zonder leesmodus behouden lettergreepinstellingen');
+        localStorage.removeItem(keys[0]);
+        localStorage.setItem(keys[1], JSON.stringify({ showSyllables: false, colorSyllables: false }));
+        app = await loadApp();
+        assert(app.document.querySelector('input[name="reading-mode"][value="syllables"]').checked &&
+          JSON.parse(localStorage.getItem(keys[0])).readingMode === 'syllables',
+          'Migratie van oude instellingen bewaart de standaardmodus');
+        results.textContent = `${checks.join('\n')}\n\n${checks.length} tests geslaagd.`;
+        results.dataset.status = 'passed';
+      } catch (error) {
+        results.textContent = `${checks.join('\n')}\nFAIL: ${error.stack}`;
+        results.dataset.status = 'failed';
+      } finally {
+        keys.forEach((key, index) => {
+          if (saved[index] === null) localStorage.removeItem(key);
+          else localStorage.setItem(key, saved[index]);
+        });
+      }
+    })();
+  </script>
+</body>
+</html>
