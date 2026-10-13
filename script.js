@@ -36,6 +36,20 @@ document.addEventListener('DOMContentLoaded', () => {
   const toggleShowSyllables = document.getElementById('toggle-show-syllables');
   const toggleColorSyllables = document.getElementById('toggle-color-syllables');
 
+  // --- DOM Elementen voor Document Upload ---
+  const fileInput = document.getElementById('file-input');
+  const uploadDropzone = document.getElementById('upload-dropzone');
+  const uploadIdle = document.getElementById('upload-idle');
+  const uploadProcessing = document.getElementById('upload-processing');
+  const uploadProcessingTitle = document.getElementById('upload-processing-title');
+  const uploadSuccess = document.getElementById('upload-success');
+  const uploadFileName = document.getElementById('upload-file-name');
+  const uploadWordCount = document.getElementById('upload-word-count');
+  const btnRemoveDoc = document.getElementById('btn-remove-doc');
+  const uploadAlert = document.getElementById('upload-alert');
+  const uploadAlertText = document.getElementById('upload-alert-text');
+  const btnCloseAlert = document.getElementById('btn-close-alert');
+
   // --- Spraaksynthese (Voorlezen) State ---
   let synth = window.speechSynthesis || null;
   let currentUtterance = null;
@@ -662,11 +676,383 @@ Op een dag vond Pip een geheimzinnig kaartje op de grond. Er stond op: 'De schat
     textInput.value = '';
     updateCounter();
     renderBlocks([]);
+    setUploadState('idle');
+    hideUploadAlert();
     showToast('Tekst gewist. 🗑️');
     textInput.focus();
   });
 
-  // --- 8. Kopiëren naar Klembord ---
+  // --- 8. Document Processor & Upload (.docx & .pdf) ---
+  /**
+   * Modulaire document processor voor het extraheren van tekst uit Word- en PDF-bestanden.
+   * Werkt 100% lokaal in het browsergeheugen zonder server of externe API-oproepen.
+   * Klaar voor latere uitbreiding met client-side OCR (bijv. Tesseract.js WebAssembly).
+   */
+  const DocumentProcessor = {
+    supportedExtensions: ['docx', 'pdf'],
+
+    /**
+     * Extraheert tekst uit een aangeleverd File object (.docx of .pdf).
+     * @param {File} file
+     * @returns {Promise<{ text: string, wordCount: number, fileName: string, fileType: string, isScannedOrEmpty: boolean }>}
+     */
+    async extractText(file) {
+      if (!file) {
+        throw new Error('Geen bestand geselecteerd.');
+      }
+
+      const ext = this.getFileExtension(file.name);
+      let rawText = '';
+
+      if (ext === 'docx') {
+        rawText = await this.extractFromDocx(file);
+      } else if (ext === 'pdf') {
+        rawText = await this.extractFromPdf(file);
+      } else {
+        throw new Error(`Het formaat .${ext || 'onbekend'} wordt niet ondersteund. Kies een Word- (.docx) of PDF- (.pdf) bestand.`);
+      }
+
+      const cleanText = this.cleanExtractedText(rawText);
+      const wordCount = this.countWords(cleanText);
+      const isScannedOrEmpty = wordCount === 0;
+
+      return {
+        text: cleanText,
+        wordCount,
+        fileName: file.name,
+        fileType: ext,
+        isScannedOrEmpty
+      };
+    },
+
+    getFileExtension(fileName) {
+      if (!fileName || !fileName.includes('.')) return '';
+      return fileName.split('.').pop().toLowerCase().trim();
+    },
+
+    /**
+     * Hulpfunctie om een File veilig uit te lezen als ArrayBuffer in elke moderne browser.
+     */
+    readAsArrayBuffer(file) {
+      if (file.arrayBuffer) {
+        return file.arrayBuffer();
+      }
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = () => reject(reader.error);
+        reader.readAsArrayBuffer(file);
+      });
+    },
+
+    /**
+     * Extraheert tekst uit een .docx Word document via Mammoth.js.
+     * Mammoth leest de Office Open XML documentstructuur 100% lokaal uit in de browser.
+     */
+    async extractFromDocx(file) {
+      if (typeof window.mammoth === 'undefined') {
+        throw new Error('De Word-bibliotheek (Mammoth) kon niet geladen worden. Controleer je internetverbinding of herlaad de pagina.');
+      }
+
+      try {
+        const arrayBuffer = await this.readAsArrayBuffer(file);
+        const result = await window.mammoth.extractRawText({ arrayBuffer });
+        return result && typeof result.value === 'string' ? result.value : '';
+      } catch (err) {
+        console.error('Fout bij extractie van .docx:', err);
+        throw new Error('Kon het Word-document niet lezen. Het bestand is mogelijk beschadigd of beveiligd.');
+      }
+    },
+
+    /**
+     * Extraheert tekst uit een tekstgebaseerde PDF met behulp van PDF.js.
+     * Itereert door alle pagina's en bouwt per regel en alinea tekst op.
+     */
+    async extractFromPdf(file) {
+      if (typeof window.pdfjsLib === 'undefined') {
+        throw new Error('De PDF-bibliotheek (PDF.js) kon niet geladen worden. Controleer je internetverbinding of herlaad de pagina.');
+      }
+
+      // Configureer de worker bron voor PDF.js
+      if (!window.pdfjsLib.GlobalWorkerOptions.workerSrc) {
+        window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+      }
+
+      try {
+        const arrayBuffer = await this.readAsArrayBuffer(file);
+        const loadingTask = window.pdfjsLib.getDocument({
+          data: new Uint8Array(arrayBuffer),
+          useSystemFonts: true,
+          isEvalSupported: false
+        });
+
+        const pdf = await loadingTask.promise;
+        const pageTexts = [];
+
+        for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+          const page = await pdf.getPage(pageNum);
+          const textContent = await page.getTextContent();
+          const pageStr = this.parsePdfTextContent(textContent);
+          if (pageStr.trim()) {
+            pageTexts.push(pageStr.trim());
+          }
+        }
+
+        return pageTexts.join('\n\n');
+      } catch (err) {
+        console.error('Fout bij extractie van .pdf:', err);
+        if (err && err.name === 'PasswordException') {
+          throw new Error('Dit PDF-bestand is beveiligd met een wachtwoord. Ontgrendel het document eerst.');
+        }
+        throw new Error('Kon het PDF-document niet lezen. Het bestand is mogelijk beschadigd of beveiligd.');
+      }
+    },
+
+    /**
+     * Converteert losse PDF tekst-items naar nette regels en alinea's op basis van Y-coördinaten en EOL-markers.
+     */
+    parsePdfTextContent(textContent) {
+      if (!textContent || !Array.isArray(textContent.items) || textContent.items.length === 0) {
+        return '';
+      }
+
+      const items = textContent.items;
+      const lines = [];
+      let currentLine = '';
+      let lastY = null;
+
+      for (const item of items) {
+        const str = item.str;
+        if (!str && !item.hasEOL) continue;
+
+        const y = item.transform ? Math.round(item.transform[5]) : null;
+        const isNewLine = item.hasEOL || (lastY !== null && y !== null && Math.abs(y - lastY) > 6);
+
+        if (isNewLine) {
+          if (currentLine.trim()) {
+            lines.push(currentLine.trim());
+          }
+          currentLine = '';
+        }
+
+        if (str) {
+          if (currentLine && !currentLine.endsWith(' ') && !str.startsWith(' ')) {
+            currentLine += ' ';
+          }
+          currentLine += str;
+        }
+
+        if (y !== null) {
+          lastY = y;
+        }
+      }
+
+      if (currentLine.trim()) {
+        lines.push(currentLine.trim());
+      }
+
+      return lines.join('\n');
+    },
+
+    /**
+     * Maakt geëxtraheerde tekst schoon:
+     * - Normaliseert regeleindes naar \n
+     * - Verwijdert overtollige spaties binnen regels
+     * - Beperkt opeenvolgende witregels tot maximaal 2
+     * - Verwijdert storende niet-afdrukbare control characters
+     */
+    cleanExtractedText(raw) {
+      if (!raw) return '';
+      return raw
+        .replace(/\r\n/g, '\n')
+        .replace(/\r/g, '\n')
+        .replace(/[^\S\n]+/g, ' ')
+        .replace(/\n{3,}/g, '\n\n')
+        .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '')
+        .trim();
+    },
+
+    /**
+     * Telt betrouwbaar het aantal woorden in een tekst.
+     */
+    countWords(text) {
+      if (!text || !text.trim()) return 0;
+      return text.trim().split(/\s+/).filter(Boolean).length;
+    },
+
+    /**
+     * Extensiepunt voor toekomstige OCR functionaliteit.
+     * Gescande PDF's en foto's kunnen in een volgende fase client-side via bijvoorbeeld Tesseract.js (WASM)
+     * worden verwerkt zonder dat gegevens ooit een server raken.
+     */
+    async extractWithOcr(file, onProgress) {
+      throw new Error('OCR wordt in een toekomstige versie ondersteund.');
+    }
+  };
+
+  // Upload UI State Management
+  function setUploadState(state, data = {}) {
+    if (!uploadIdle || !uploadProcessing || !uploadSuccess) return;
+
+    if (state === 'idle') {
+      uploadIdle.style.display = 'flex';
+      uploadProcessing.style.display = 'none';
+      uploadSuccess.style.display = 'none';
+      if (fileInput) fileInput.value = '';
+    } else if (state === 'processing') {
+      uploadIdle.style.display = 'none';
+      uploadProcessing.style.display = 'flex';
+      uploadSuccess.style.display = 'none';
+      hideUploadAlert();
+      if (uploadProcessingTitle) {
+        uploadProcessingTitle.textContent = data.title || 'Bezig met document lezen...';
+      }
+    } else if (state === 'success') {
+      uploadIdle.style.display = 'none';
+      uploadProcessing.style.display = 'none';
+      uploadSuccess.style.display = 'flex';
+      hideUploadAlert();
+      if (uploadFileName) uploadFileName.textContent = data.fileName || 'Document';
+      if (uploadWordCount) {
+        const count = data.wordCount || 0;
+        uploadWordCount.textContent = `${count} ${count === 1 ? 'woord' : 'woorden'} gevonden`;
+      }
+    }
+  }
+
+  function showUploadAlert(message) {
+    if (!uploadAlert || !uploadAlertText) return;
+    uploadAlertText.textContent = message;
+    uploadAlert.style.display = 'flex';
+  }
+
+  function hideUploadAlert() {
+    if (!uploadAlert || !uploadAlertText) return;
+    uploadAlert.style.display = 'none';
+    uploadAlertText.textContent = '';
+  }
+
+  /**
+   * Verwerkt een geüpload Word- of PDF-bestand:
+   * 1. Valideert bestandstype (.docx of .pdf)
+   * 2. Toont voortgangsstatus
+   * 3. Extraheert tekst lokaal via DocumentProcessor
+   * 4. Controleert of tekst gevonden is (of toont OCR-melding)
+   * 5. Vult het tekstvak en genereert direct LeesBlokjes
+   */
+  async function handleFileUpload(file) {
+    if (!file) return;
+
+    hideUploadAlert();
+
+    const ext = DocumentProcessor.getFileExtension(file.name);
+    if (!DocumentProcessor.supportedExtensions.includes(ext)) {
+      showUploadAlert('Alleen Word- (.docx) en PDF-bestanden (.pdf) worden ondersteund. Kies een bestand met de juiste extensie.');
+      setUploadState('idle');
+      return;
+    }
+
+    setUploadState('processing', {
+      title: `Bezig met ${file.name} lezen...`
+    });
+
+    try {
+      const result = await DocumentProcessor.extractText(file);
+
+      // Foutafhandeling: geen tekst gevonden (waarschijnlijk scan of afbeelding)
+      if (result.isScannedOrEmpty) {
+        setUploadState('idle');
+        showUploadAlert('Dit document bevat waarschijnlijk alleen afbeeldingen of een scan. OCR wordt in een toekomstige versie ondersteund.');
+        showToast('Geen tekst gevonden in dit document. ⚠️');
+        return;
+      }
+
+      // Succesvolle extractie: toon successtatus met bestandsnaam en aantal woorden
+      setUploadState('success', {
+        fileName: result.fileName,
+        wordCount: result.wordCount
+      });
+
+      // Vul het invoervak
+      textInput.value = result.text;
+      updateCounter();
+
+      // Voer direct de bestaande LeesBlokjes verwerking uit
+      const blocks = splitIntoReadingBlocks(result.text);
+      renderBlocks(blocks);
+
+      showToast(`Document succesvol geladen! ${result.wordCount} woorden omgezet naar ${blocks.length} leesblokjes. 📄✨`);
+    } catch (err) {
+      console.error('Fout bij document upload:', err);
+      setUploadState('idle');
+      showUploadAlert(err.message || 'Er ging iets mis bij het openen van het document. Probeer het opnieuw.');
+      showToast('Kon het document niet inlezen. ⚠️');
+    }
+  }
+
+  // File input change listener
+  if (fileInput) {
+    fileInput.addEventListener('change', (e) => {
+      if (e.target.files && e.target.files.length > 0) {
+        handleFileUpload(e.target.files[0]);
+      }
+    });
+  }
+
+  // Drag & drop listeners op de dropzone
+  if (uploadDropzone) {
+    ['dragenter', 'dragover'].forEach(eventName => {
+      uploadDropzone.addEventListener(eventName, (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        uploadDropzone.classList.add('drag-over');
+      });
+    });
+
+    ['dragleave', 'dragend'].forEach(eventName => {
+      uploadDropzone.addEventListener(eventName, (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (!uploadDropzone.contains(e.relatedTarget)) {
+          uploadDropzone.classList.remove('drag-over');
+        }
+      });
+    });
+
+    uploadDropzone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      uploadDropzone.classList.remove('drag-over');
+
+      if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+        handleFileUpload(e.dataTransfer.files[0]);
+      }
+    });
+
+    // Toetsenbordtoegankelijkheid (Enter of spatie op de dropzone)
+    uploadDropzone.addEventListener('keydown', (e) => {
+      if ((e.key === 'Enter' || e.key === ' ') && e.target === uploadDropzone) {
+        e.preventDefault();
+        if (fileInput) fileInput.click();
+      }
+    });
+  }
+
+  // Knoppen voor wissen / ander bestand kiezen / melding sluiten
+  if (btnRemoveDoc) {
+    btnRemoveDoc.addEventListener('click', () => {
+      setUploadState('idle');
+      hideUploadAlert();
+    });
+  }
+
+  if (btnCloseAlert) {
+    btnCloseAlert.addEventListener('click', () => {
+      hideUploadAlert();
+    });
+  }
+
+  // --- 9. Kopiëren naar Klembord ---
   btnCopy.addEventListener('click', async () => {
     const blockElements = Array.from(outputArea.querySelectorAll('.lees-blokje'));
     if (blockElements.length === 0) return;
@@ -829,4 +1215,15 @@ Op een dag vond Pip een geheimzinnig kaartje op de grond. Er stond op: 'De schat
 
   // Initialiseer woordenteller bij eventuele reeds aanwezige tekst
   updateCounter();
+
+  // Exporteer publieke API voor uitbreidingen (bijv. toekomstige OCR module) en tests
+  window.LeesBlokjes = {
+    DocumentProcessor,
+    handleFileUpload,
+    splitIntoReadingBlocks,
+    renderBlocks,
+    splitDutchSyllables,
+    applyProfile,
+    showToast
+  };
 });
