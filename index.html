@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LeesBlokjes - Rustig en fijn lezen</title>
+  
+  <!-- Lexend: ontworpen voor optimale leesbaarheid en rust voor de ogen -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;500;600;700&display=swap" rel="stylesheet">
+  
+  <!-- OpenDyslexic webfont via jsDelivr -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/opendyslexic@5.0.3/index.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/opendyslexic@5.0.3/700.css">
+  
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app-container">
+    
+    <!-- Kopgedeelte -->
+    <header class="app-header">
+      <div class="logo-badge">
+        <span class="block-icon b1"></span>
+        <span class="block-icon b2"></span>
+        <span class="block-icon b3"></span>
+      </div>
+      <h1 class="app-title">LeesBlokjes</h1>
+      <p class="app-tagline">
+        Plak of typ je tekst hieronder. Wij verdelen het in rustige, overzichtelijke blokjes zodat lezen weer fijn en makkelijk wordt!
+      </p>
+    </header>
+
+    <!-- Instellingen / Opties -->
+    <section class="options-card" aria-label="Leesopties instellen">
+      <h2 class="options-heading">
+        <span class="icon" aria-hidden="true">⚙️</span>
+        Kies wat jij fijn vindt lezen
+      </h2>
+
+      <div class="toggles-grid">
+        <!-- Optie 1: OpenDyslexic -->
+        <label class="toggle-control" for="toggle-opendyslexic">
+          <div class="toggle-info">
+            <span class="toggle-title">OpenDyslexic lettertype</span>
+            <span class="toggle-desc">Letters met zware onderkant zodat ze minder dansen</span>
+          </div>
+          <div class="switch">
+            <input type="checkbox" id="toggle-opendyslexic" role="switch" aria-label="OpenDyslexic lettertype in- of uitschakelen">
+            <span class="slider"></span>
+          </div>
+        </label>
+
+        <!-- Optie 2: Grote letters -->
+        <label class="toggle-control" for="toggle-large-font">
+          <div class="toggle-info">
+            <span class="toggle-title">Grote letters</span>
+            <span class="toggle-desc">Extra duidelijke en grote lettergrootte</span>
+          </div>
+          <div class="switch">
+            <input type="checkbox" id="toggle-large-font" role="switch" aria-label="Grote letters in- of uitschakelen">
+            <span class="slider"></span>
+          </div>
+        </label>
+
+        <!-- Optie 3: Grote regelafstand -->
+        <label class="toggle-control" for="toggle-large-spacing">
+          <div class="toggle-info">
+            <span class="toggle-title">Grote regelafstand</span>
+            <span class="toggle-desc">Meer witruimte tussen de regels en woorden</span>
+          </div>
+          <div class="switch">
+            <input type="checkbox" id="toggle-large-spacing" role="switch" aria-label="Grote regelafstand in- of uitschakelen">
+            <span class="slider"></span>
+          </div>
+        </label>
+
+        <!-- Optie 4: Donkere modus -->
+        <label class="toggle-control" for="toggle-dark-mode">
+          <div class="toggle-info">
+            <span class="toggle-title">Donkere modus</span>
+            <span class="toggle-desc">Donkere, rustige achtergrond tegen fel licht</span>
+          </div>
+          <div class="switch">
+            <input type="checkbox" id="toggle-dark-mode" role="switch" aria-label="Donkere modus in- of uitschakelen">
+            <span class="slider"></span>
+          </div>
+        </label>
+      </div>
+
+      <!-- Experimentele dyslexiemodus: Woorden opdelen in lettergrepen -->
+      <div class="experimental-divider">
+        <span class="badge-experimental">🧪 Experimentele dyslexiemodus</span>
+        <span class="experimental-desc">Maakt lange woorden minder moeilijk door ze op te knippen</span>
+      </div>
+
+      <div class="toggles-grid">
+        <!-- Optie 5: Lettergrepen tonen -->
+        <label class="toggle-control" for="toggle-show-syllables">
+          <div class="toggle-info">
+            <span class="toggle-title">Lettergrepen tonen</span>
+            <span class="toggle-desc">Woorden opdelen met streepjes: Ne | der | land</span>
+          </div>
+          <div class="switch">
+            <input type="checkbox" id="toggle-show-syllables" role="switch" aria-label="Lettergrepen tonen in- of uitschakelen">
+            <span class="slider"></span>
+          </div>
+        </label>
+
+        <!-- Optie 6: Lettergrepen kleuren -->
+        <label class="toggle-control" for="toggle-color-syllables">
+          <div class="toggle-info">
+            <span class="toggle-title">Lettergrepen kleuren</span>
+            <span class="toggle-desc">Rustige pastelkleuren (blauw, groen, geel, paars)</span>
+          </div>
+          <div class="switch">
+            <input type="checkbox" id="toggle-color-syllables" role="switch" aria-label="Lettergrepen kleuren in- of uitschakelen">
+            <span class="slider"></span>
+          </div>
+        </label>
+      </div>
+    </section>
+
+    <!-- Invoergebied -->
+    <section class="input-card" aria-label="Tekst invoeren">
+      <div class="card-header">
+        <label for="text-input" class="card-title">
+          <span class="step-badge">1</span>
+          Jouw tekst
+        </label>
+        <div class="card-tools">
+          <button type="button" id="btn-sample" class="btn-ghost" title="Vul een leuk voorbeeldverhaal in">
+            <span class="emoji-icon" aria-hidden="true">✨</span> Probeer een voorbeeld
+          </button>
+          <button type="button" id="btn-clear" class="btn-ghost" title="Invoervak leegmaken">
+            <span class="emoji-icon" aria-hidden="true">🗑️</span> Wissen
+          </button>
+        </div>
+      </div>
+
+      <div class="textarea-wrapper">
+        <textarea
+          id="text-input"
+          rows="8"
+          placeholder="Typ of plak hier een tekst... Bijvoorbeeld een verhaal van school, een spreekbeurt of een leuk boek!"
+          aria-describedby="input-helper"
+        ></textarea>
+      </div>
+
+      <div class="input-footer">
+        <span id="input-helper" class="helper-text">
+          <span id="char-counter">0 woorden</span>
+        </span>
+        <button type="button" id="btn-convert" class="btn-primary">
+          <span class="btn-icon" aria-hidden="true">📖</span>
+          <span class="btn-text">Maak leesvriendelijk</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- Uitvoergebied -->
+    <section class="output-card" aria-label="Leesvriendelijke uitvoer">
+      <div class="card-header">
+        <h2 class="card-title">
+          <span class="step-badge">2</span>
+          Jouw LeesBlokjes
+        </h2>
+        <div class="output-actions" id="output-actions" style="display: none;">
+          <button type="button" id="btn-read-all" class="btn-secondary" title="Lees de hele tekst voor">
+            🔊 Alles voorlezen
+          </button>
+          <button type="button" id="btn-stop-audio" class="btn-secondary" title="Stop het voorlezen" style="display: none;">
+            ⏹️ Stop voorlezen
+          </button>
+          <button type="button" id="btn-copy" class="btn-secondary" title="Kopieer de tekst">
+            📋 Kopieer tekst
+          </button>
+        </div>
+      </div>
+
+      <div class="focus-tip" id="focus-tip" style="display: none;">
+        💡 <strong>Tip voor jou:</strong> Klik op een blokje om er een geel lees-lampje op te zetten! Zo raak je nooit de weg kwijt.
+      </div>
+
+      <!-- Hier worden de blokjes getoond -->
+      <div id="output-area" class="output-area" tabindex="0" aria-live="polite">
+        <div class="empty-state" id="empty-state">
+          <div class="empty-illustration" aria-hidden="true">
+            <span class="floating-block fb1">🧩</span>
+            <span class="floating-block fb2">📚</span>
+            <span class="floating-block fb3">✨</span>
+          </div>
+          <p class="empty-title">Nog geen blokjes gemaakt</p>
+          <p class="empty-text">
+            Typ of plak hierboven een tekst en druk op de grote knop <strong>'Maak leesvriendelijk'</strong>.
+            We maken er hapklare stukjes van!
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Vriendelijke footer -->
+    <footer class="app-footer">
+      <p>Gemaakt met liefde om lezen leuker en makkelijker te maken voor iedereen! 🌟</p>
+      <p class="footer-small">Tip: neem regelmatig even rust voor je ogen.</p>
+    </footer>
+
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
