@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>LeesBlokjes - Rustig en fijn lezen</title>
+  <title>LeesBlokjes™ - Rustig en fijn lezen</title>
   
   <!-- Lexend: ontworpen voor optimale leesbaarheid en rust voor de ogen -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -32,24 +32,11 @@
             <span class="block-icon b3"></span>
           </div>
           <div class="header-text">
-            <h1 class="app-title">LeesBlokjes</h1>
+            <h1 class="app-title">LeesBlokjes™</h1>
             <p class="app-tagline">
               Plak of typ je tekst hieronder. Wij verdelen het in rustige, overzichtelijke blokjes zodat lezen weer fijn en makkelijk wordt!
             </p>
           </div>
-        </div>
-        <div class="header-actions">
-          <button
-            type="button"
-            id="btn-toggle-sidebar"
-            class="btn-sidebar-toggle"
-            aria-expanded="true"
-            aria-controls="profile-panel"
-            title="Leesinstellingen verbergen of tonen"
-          >
-            <span class="toggle-icon" aria-hidden="true">⚙️</span>
-            <span class="toggle-text">Instellingen verbergen</span>
-          </button>
         </div>
       </div>
     </header>
@@ -57,26 +44,17 @@
     <!-- Hoofdindeling (Tweekoloms op desktop, gestapeld op mobiel) -->
     <main class="main-layout" id="main-layout">
 
-      <!-- Linkerkolom: Inklapbaar instellingenpaneel -->
+      <!-- Leesprofiel en instellingen blijven altijd beschikbaar. -->
       <aside class="sidebar-column" id="profile-panel" aria-label="Leesinstellingen">
         <section class="options-card profile-card" aria-label="Persoonlijk leesprofiel instellen">
           <div class="profile-header">
             <h2 class="options-heading">
               <span class="icon" aria-hidden="true">🎨</span>
-              Leesprofiel
+              Leesinstellingen
             </h2>
             <div class="profile-header-actions">
               <button type="button" id="btn-reset-profile" class="btn-ghost btn-sm" title="Standaard leesprofiel herstellen">
                 <span class="emoji-icon" aria-hidden="true">🔄</span> Standaard
-              </button>
-              <button
-                type="button"
-                id="btn-close-sidebar"
-                class="btn-ghost btn-sm btn-hide-sidebar"
-                title="Instellingen verbergen voor meer tekstruimte"
-                aria-label="Instellingen verbergen"
-              >
-                <span aria-hidden="true">◀</span> Verbergen
               </button>
             </div>
           </div>
@@ -102,7 +80,7 @@
             <div class="profile-item">
               <div class="profile-label-row">
                 <label for="profile-font-size" class="profile-label">
-                  <span class="profile-label-title">Tekstgrootte</span>
+                  <span class="profile-label-title">Lettergrootte</span>
                 </label>
                 <span id="val-font-size" class="slider-badge" aria-live="polite">20 px</span>
               </div>
@@ -116,7 +94,7 @@
                   max="32"
                   step="1"
                   value="20"
-                  aria-label="Tekstgrootte in pixels van 14 tot 32"
+                  aria-label="Lettergrootte in pixels van 14 tot 32"
                 >
                 <span class="slider-end-label large-a" aria-hidden="true">A</span>
               </div>
@@ -177,7 +155,29 @@
               </datalist>
             </div>
 
-            <!-- Achtergrondkleur (5 opties) -->
+            <section class="profile-item reading-profile-section" aria-labelledby="reading-profile-title">
+              <h3 id="reading-profile-title" class="profile-label-title">Leesprofiel</h3>
+              <p id="reading-profile-description" class="reading-profile-description">Kies de manier waarop de tekst wordt weergegeven.</p>
+              <div class="reading-profile-picker" role="group" aria-labelledby="reading-profile-title" aria-describedby="reading-profile-description">
+                <button type="button" class="reading-profile-choice" data-reading-profile="navigator" aria-pressed="true">
+                  <span class="profile-choice-title">Klanknavigator</span>
+                  <span class="profile-choice-description">Kleuren helpen klanken herkennen.</span>
+                </button>
+                <button type="button" class="reading-profile-choice" data-reading-profile="focus" aria-pressed="false">
+                  <span class="profile-choice-title">Focuslezen</span>
+                  <span class="profile-choice-description">Leg nadruk op het actieve leesdeel.</span>
+                </button>
+                <button type="button" class="reading-profile-choice" data-reading-profile="personal" aria-pressed="false">
+                  <span class="profile-choice-title">Persoonlijke hulp</span>
+                  <span class="profile-choice-description">Kies zelf welke ondersteuning zichtbaar is.</span>
+                </button>
+                <button type="button" class="reading-profile-choice" data-reading-profile="sounds" aria-pressed="false">
+                  <span class="profile-choice-title">Klanken</span>
+                  <span class="profile-choice-description">Toon uitgebreide klankweergave.</span>
+                </button>
+              </div>
+            </section>
+
             <div class="profile-item profile-item-theme">
               <div class="profile-label">
                 <span class="profile-label-title" id="theme-group-label">Achtergrondkleur</span>
@@ -196,7 +196,7 @@
                   <input type="radio" name="profile-theme" id="theme-blauw" value="blauw">
                   <span class="theme-swatch swatch-blauw" aria-hidden="true"></span>
                   <span class="theme-text">
-                    <span class="theme-name">Lichtblauw</span>
+                    <span class="theme-name">Warmblauw</span>
                   </span>
                 </label>
 
@@ -204,15 +204,7 @@
                   <input type="radio" name="profile-theme" id="theme-groen" value="groen">
                   <span class="theme-swatch swatch-groen" aria-hidden="true"></span>
                   <span class="theme-text">
-                    <span class="theme-name">Lichtgroen</span>
-                  </span>
-                </label>
-
-                <label class="theme-option" for="theme-geel">
-                  <input type="radio" name="profile-theme" id="theme-geel" value="geel">
-                  <span class="theme-swatch swatch-geel" aria-hidden="true"></span>
-                  <span class="theme-text">
-                    <span class="theme-name">Lichtgeel</span>
+                    <span class="theme-name">Warmgroen</span>
                   </span>
                 </label>
 
@@ -226,44 +218,46 @@
 
               </div>
             </div>
+            <section class="profile-item reading-layout-section" aria-labelledby="reading-layout-title">
+              <h3 id="reading-layout-title" class="profile-label-title">Tekstweergave</h3>
+              <div class="reading-mode-picker" role="group" aria-labelledby="reading-layout-title">
+                <button type="button" class="reading-mode-button" data-reading-layout="blocks" aria-pressed="true">Alineablokken</button>
+                <button type="button" class="reading-mode-button" data-reading-layout="continuous" aria-pressed="false">Doorlopende tekst</button>
+              </div>
+            </section>
           </div>
 
-          <!-- Dyslexiemodus: lettergrepen of klanken -->
-          <div class="experimental-divider">
-            <span class="profile-label-title">Dyslexiemodus <span class="badge-beta-tag">BETA</span></span>
-          </div>
-
-          <div class="reading-mode-picker" role="group" aria-label="Leesmodus">
-            <button type="button" class="reading-mode-button" data-reading-mode="syllables" aria-pressed="true">Lettergrepen</button>
-            <button type="button" class="reading-mode-button" data-reading-mode="sounds" aria-pressed="false">Klanken <span class="badge-beta-tag">BETA</span></button>
-          </div>
-
-          <div class="reading-mode-picker" role="group" aria-label="Tekstweergave">
-            <button type="button" class="reading-mode-button" data-reading-layout="blocks" aria-pressed="true">Alineablokken</button>
-            <button type="button" class="reading-mode-button" data-reading-layout="continuous" aria-pressed="false">Doorlopende tekst</button>
-          </div>
-
-          <div id="sound-mode-info" class="sound-mode-info" hidden>
-            <details class="sound-guide">
-            <summary>Leeskaart en klankkleuren</summary>
-            <ul class="sound-legend">
-              <li><span class="sound sound-green">a e i o u</span> Groen</li>
-              <li><span class="sound sound-yellow">aa ee oo uu</span> Geel</li>
-              <li><span class="sound sound-orange">ij ei ou au ie oe eu ui</span> Oranje</li>
-              <li><span class="sound sound-white sound-underline">aai ooi oei</span> Wit: dubbele onderstreping</li>
-              <li><span class="sound sound-white sound-dots"><span class="sound-letter">e</span><span class="sound-letter">e</span><span class="sound-letter">u</span><span class="sound-letter">w</span></span> Wit: eeuw, ieuw, uw met punten</li>
-              <li><span class="sound sound-blue">schr</span> Blauw: medeklinkers en clusters</li>
-            </ul>
-            <p class="profile-label-hint">Herkent geschreven klankgroepen, niet de uitspraak. Klemtoon, leenwoorden en lettergreepgrenzen kunnen afwijken.</p>
-            </details>
-          </div>
-
+          <section id="personal-options" aria-labelledby="personal-options-title" hidden>
+            <h3 id="personal-options-title" class="profile-label-title">Persoonlijke ondersteuning</h3>
+            <div class="toggles-grid">
+              <label class="toggle-control" for="help-long">
+                <span class="toggle-title">Lange klanken markeren</span>
+                <span class="switch"><input type="checkbox" id="help-long" role="switch" checked><span class="slider"></span></span>
+              </label>
+              <label class="toggle-control" for="help-double">
+                <span class="toggle-title">Tweetekenklanken markeren</span>
+                <span class="switch"><input type="checkbox" id="help-double" role="switch" checked><span class="slider"></span></span>
+              </label>
+              <label class="toggle-control" for="help-difficult">
+                <span class="toggle-title">Moeilijke klankgroepen markeren</span>
+                <span class="switch"><input type="checkbox" id="help-difficult" role="switch" checked><span class="slider"></span></span>
+              </label>
+              <label class="toggle-control" for="help-position">
+                <span class="toggle-title">Leespositie markeren</span>
+                <span class="switch"><input type="checkbox" id="help-position" role="switch" checked><span class="slider"></span></span>
+              </label>
+              <label class="toggle-control" for="help-speech">
+                <span class="toggle-title">Voorleeshulp</span>
+                <span class="switch"><input type="checkbox" id="help-speech" role="switch" checked><span class="slider"></span></span>
+              </label>
+            </div>
+            <h3 class="profile-label-title">Overige instellingen</h3>
           <div id="syllable-options" class="toggles-grid">
             <!-- Optie 5: Lettergrepen tonen -->
             <label class="toggle-control" for="toggle-show-syllables">
               <div class="toggle-info">
                 <span class="toggle-title">Lettergrepen tonen</span>
-                <span class="toggle-desc">Woorden als losse bouwstenen: [Ne] [der] [land]</span>
+                <span class="toggle-desc">Vervangt klankmarkeringen door lettergrepen: [Ne] [der] [land]</span>
               </div>
               <div class="switch">
                 <input type="checkbox" id="toggle-show-syllables" role="switch" aria-label="Lettergrepen tonen in- of uitschakelen">
@@ -283,6 +277,7 @@
               </div>
             </label>
           </div>
+          </section>
         </section>
       </aside>
 
@@ -294,7 +289,7 @@
         <button type="button" class="import-source-button is-active" id="tab-btn-text" aria-pressed="true" aria-controls="import-panel-text">✏️ Tekst plakken</button>
         <button type="button" class="import-source-button" id="tab-btn-doc" aria-pressed="false" aria-controls="import-panel-doc">📄 Document uploaden</button>
         <button type="button" class="import-source-button" id="tab-btn-web" aria-pressed="false" aria-controls="import-panel-web">🌍 Webpagina importeren</button>
-        <button type="button" class="import-source-button" id="tab-btn-bookmarklet" aria-pressed="false" aria-controls="import-panel-bookmarklet">🧪 LeesBlokjes op websites <span class="badge-beta-tag">BETA</span></button>
+        <button type="button" class="import-source-button" id="tab-btn-bookmarklet" aria-pressed="false" aria-controls="import-panel-bookmarklet">🧪 LeesBlokjes™ op websites <span class="badge-beta-tag">BETA</span></button>
       </nav>
 
       <div class="import-panel" id="import-panel-text" role="region" aria-labelledby="tab-btn-text">
@@ -503,7 +498,7 @@
                 <span class="hint-icon" aria-hidden="true">💡</span>
                 <span class="hint-text">
                   Blokkeert een website directe toegang?
-                  <button type="button" id="btn-goto-bookmarklet" class="link-btn">Gebruik de Bookmarklet (BETA) ➔</button>
+                  <button type="button" id="btn-goto-bookmarklet" class="link-btn">Gebruik de bladwijzer (BETA) ➔</button>
                 </span>
               </div>
             </div>
@@ -514,7 +509,7 @@
             <div class="bookmarklet-card" id="bookmarklet-card">
               <div class="upload-top-bar">
                 <span class="upload-label-title">
-                  <span class="emoji-icon" aria-hidden="true">🧪</span> LeesBlokjes op websites
+                  <span class="emoji-icon" aria-hidden="true">🧪</span> LeesBlokjes™ op websites
                 </span>
                 <span class="upload-badge badge-beta-pill">BETA • Experimenteel</span>
               </div>
@@ -528,13 +523,13 @@
               </div>
 
               <p class="bookmarklet-intro">
-                Met de <strong>LeesBlokjes Bookmarklet</strong> kun je op iedere website (zoals Nu.nl, Jeugdjournaal, Wikipedia of Schooltv) met één klik de hoofdtekst direct in LeesBlokjes openen.
+                Met de <strong>LeesBlokjes™-bladwijzer</strong> kun je op iedere website (zoals Nu.nl, Jeugdjournaal, Wikipedia of Schooltv) met één klik de hoofdtekst direct in LeesBlokjes™ openen.
               </p>
 
               <div class="bookmarklet-action-row">
                 <button type="button" id="btn-make-bookmarklet" class="btn-primary btn-make-bookmarklet">
                   <span class="btn-icon" aria-hidden="true">🪄</span>
-                  <span class="btn-text">Maak LeesBlokjes Bookmarklet</span>
+                  <span class="btn-text">Maak LeesBlokjes™-bladwijzer</span>
                 </button>
               </div>
 
@@ -557,7 +552,7 @@
                     role="button"
                   >
                     <span class="bm-icon" aria-hidden="true">📖</span>
-                    <span class="bm-title">Lees in LeesBlokjes</span>
+                    <span class="bm-title">Lees in LeesBlokjes™</span>
                   </a>
                   <button
                     type="button"
@@ -580,7 +575,7 @@
                   </div>
                   <div class="bm-step">
                     <span class="bm-step-num">3</span>
-                    <span class="bm-step-text"><strong>Klik op de LeesBlokjes bladwijzer:</strong> het artikel opent meteen hier in rustige blokjes! 🎉</span>
+                    <span class="bm-step-text"><strong>Klik op de LeesBlokjes™-bladwijzer:</strong> het artikel opent meteen hier in rustige blokjes! 🎉</span>
                   </div>
                 </div>
 
@@ -597,7 +592,7 @@
       <div class="card-header">
         <h2 class="card-title">
           <span class="step-badge">2</span>
-          Jouw LeesBlokjes
+          Jouw LeesBlokjes™
         </h2>
         <div class="output-actions" id="output-actions" style="display: none;">
           <button type="button" id="btn-read-all" class="btn-secondary" title="Lees de hele tekst voor">

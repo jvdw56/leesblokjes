@@ -18,11 +18,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const btnStopAudio = document.getElementById('btn-stop-audio');
   const btnCopy = document.getElementById('btn-copy');
 
-  // --- Indeling & Inklapbaar Paneel ---
-  const mainLayout = document.getElementById('main-layout');
-  const btnToggleSidebar = document.getElementById('btn-toggle-sidebar');
-  const btnCloseSidebar = document.getElementById('btn-close-sidebar');
-
   // --- DOM Elementen voor Persoonlijk Leesprofiel ---
   const profileFont = document.getElementById('profile-font');
   const profileFontSize = document.getElementById('profile-font-size');
@@ -37,10 +32,17 @@ document.addEventListener('DOMContentLoaded', () => {
   // Dyslexiemodus
   const toggleShowSyllables = document.getElementById('toggle-show-syllables');
   const toggleColorSyllables = document.getElementById('toggle-color-syllables');
-  const readingModeButtons = document.querySelectorAll('[data-reading-mode]');
+  const readingProfileButtons = document.querySelectorAll('[data-reading-profile]');
   const readingLayoutButtons = document.querySelectorAll('[data-reading-layout]');
-  const syllableOptions = document.getElementById('syllable-options');
-  const soundModeInfo = document.getElementById('sound-mode-info');
+  const personalOptions = document.getElementById('personal-options');
+  const helpControls = {
+    longSounds: document.getElementById('help-long'),
+    doubleSounds: document.getElementById('help-double'),
+    difficultSounds: document.getElementById('help-difficult'),
+    readingPosition: document.getElementById('help-position'),
+    speech: document.getElementById('help-speech')
+  };
+  let readingProfile = 'navigator';
   let readingMode = 'syllables';
   let readingLayout = 'blocks';
   let currentBlocks = [];
@@ -126,10 +128,18 @@ document.addEventListener('DOMContentLoaded', () => {
     lineHeight: 1.8,
     wordSpacing: 1,
     theme: 'creme',
-    showSyllables: true,
+    showSyllables: false,
     colorSyllables: true,
-    readingMode: 'syllables',
-    readingLayout: 'blocks'
+    readingMode: 'sounds',
+    readingLayout: 'blocks',
+    readingProfile: 'navigator',
+    help: {
+      longSounds: true,
+      doubleSounds: true,
+      difficultSounds: true,
+      readingPosition: true,
+      speech: true
+    }
   };
 
   function applyProfile(profile, updateInputs = true) {
@@ -167,7 +177,7 @@ document.addEventListener('DOMContentLoaded', () => {
     setReadingLayout(profile.readingLayout, false);
 
     // 4. Achtergrondkleur
-    const validThemes = ['creme', 'blauw', 'groen', 'geel', 'donker'];
+    const validThemes = ['creme', 'blauw', 'groen', 'donker'];
     const theme = validThemes.includes(profile.theme) ? profile.theme : 'creme';
     document.body.setAttribute('data-theme', theme);
     document.body.classList.toggle('dark-mode', theme === 'donker');
@@ -185,25 +195,45 @@ document.addEventListener('DOMContentLoaded', () => {
     if (updateInputs && toggleColorSyllables) {
       toggleColorSyllables.checked = colorSyl;
     }
-    setReadingMode(profile.readingMode, showSyl, colorSyl);
+    for (const [key, control] of Object.entries(helpControls)) {
+      control.checked = typeof profile.help?.[key] === 'boolean' ? profile.help[key] : DEFAULT_PROFILE.help[key];
+    }
+    setReadingProfile(profile.readingProfile, showSyl, colorSyl);
   }
 
-  function setReadingMode(mode, showSyllables, colorSyllables) {
-    readingMode = mode === 'sounds' ? 'sounds' : 'syllables';
-    document.body.classList.toggle('sound-mode', readingMode === 'sounds');
+  function setReadingProfile(profile, showSyllables = toggleShowSyllables.checked, colorSyllables = toggleColorSyllables.checked) {
+    readingProfile = ['navigator', 'focus', 'personal', 'sounds'].includes(profile) ? profile : 'navigator';
+    readingMode = readingProfile === 'personal' && showSyllables ? 'syllables' : 'sounds';
+    document.body.dataset.activeProfile = readingProfile;
+    document.body.classList.toggle('sound-mode', readingMode === 'sounds' && readingProfile !== 'focus');
     document.body.classList.toggle('show-syllables', readingMode === 'syllables' && showSyllables);
     document.body.classList.toggle('color-syllables', readingMode === 'syllables' && colorSyllables);
-    syllableOptions.hidden = readingMode === 'sounds';
-    soundModeInfo.hidden = readingMode !== 'sounds';
-    readingModeButtons.forEach(button => {
-      button.setAttribute('aria-pressed', String(button.dataset.readingMode === readingMode));
-    });
-    const rawText = textInput.value.trim();
-    if (rawText) {
-      renderBlocks(splitIntoReadingBlocks(rawText), false, rawText);
-    } else if (currentBlocks.length) {
-      renderBlocks(currentBlocks, false, currentText);
+    personalOptions.hidden = readingProfile !== 'personal';
+    for (const key of ['longSounds', 'doubleSounds', 'difficultSounds']) {
+      helpControls[key].disabled = readingProfile === 'personal' && showSyllables;
     }
+    readingProfileButtons.forEach(button => {
+      button.setAttribute('aria-pressed', String(button.dataset.readingProfile === readingProfile));
+    });
+    if (currentBlocks.length) {
+      renderBlocks(currentBlocks, false, currentText);
+    } else if (textInput.value.trim()) {
+      const rawText = textInput.value.trim();
+      renderBlocks(splitIntoReadingBlocks(rawText), false, rawText);
+    }
+    btnReadAll.hidden = !speechEnabled();
+  }
+
+  function positionEnabled() {
+    return readingProfile !== 'personal' || helpControls.readingPosition.checked;
+  }
+
+  function wordFocusEnabled() {
+    return readingProfile === 'focus' || (readingProfile === 'personal' && positionEnabled());
+  }
+
+  function speechEnabled() {
+    return readingProfile !== 'personal' || helpControls.speech.checked;
   }
 
   function applyWordSpacing(value, updateInputs = true) {
@@ -236,7 +266,9 @@ document.addEventListener('DOMContentLoaded', () => {
       showSyllables: Boolean(toggleShowSyllables?.checked),
       colorSyllables: Boolean(toggleColorSyllables?.checked),
       readingMode,
-      readingLayout
+      readingLayout,
+      readingProfile,
+      help: Object.fromEntries(Object.entries(helpControls).map(([key, control]) => [key, control.checked]))
     };
   }
 
@@ -254,7 +286,17 @@ document.addEventListener('DOMContentLoaded', () => {
       const savedRaw = localStorage.getItem(PROFILE_KEY);
       if (savedRaw) {
         const saved = JSON.parse(savedRaw);
-        applyProfile({ ...DEFAULT_PROFILE, ...saved }, true);
+        const migrated = { ...DEFAULT_PROFILE, ...saved };
+        if (!saved.readingProfile) {
+          migrated.readingProfile = saved.readingMode === 'sounds' ? 'sounds' : 'personal';
+          migrated.showSyllables = saved.showSyllables ?? true;
+          if (migrated.readingProfile === 'personal' && !migrated.showSyllables) {
+            migrated.help = { ...DEFAULT_PROFILE.help, longSounds: false, doubleSounds: false, difficultSounds: false };
+          }
+        }
+        if (migrated.theme === 'geel') migrated.theme = 'creme';
+        applyProfile(migrated, true);
+        saveProfile();
         return;
       }
 
@@ -268,7 +310,14 @@ document.addEventListener('DOMContentLoaded', () => {
           lineHeight: old.largeSpacing ? 2.2 : 1.8,
           theme: old.darkMode ? 'donker' : 'creme',
           showSyllables: old.showSyllables !== undefined ? old.showSyllables : true,
-          colorSyllables: old.colorSyllables !== undefined ? old.colorSyllables : true
+          colorSyllables: old.colorSyllables !== undefined ? old.colorSyllables : true,
+          readingProfile: 'personal',
+          help: {
+            ...DEFAULT_PROFILE.help,
+            longSounds: false,
+            doubleSounds: false,
+            difficultSounds: false
+          }
         };
         applyProfile(migrated, true);
         saveProfile();
@@ -333,9 +382,15 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  readingModeButtons.forEach(button => {
+  readingProfileButtons.forEach(button => {
     button.addEventListener('click', () => {
-      setReadingMode(button.dataset.readingMode, toggleShowSyllables.checked, toggleColorSyllables.checked);
+      setReadingProfile(button.dataset.readingProfile);
+      saveProfile();
+    });
+  });
+  Object.values(helpControls).forEach(control => {
+    control.addEventListener('change', () => {
+      setReadingProfile(readingProfile);
       saveProfile();
     });
   });
@@ -352,7 +407,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (toggleShowSyllables) {
     toggleShowSyllables.addEventListener('change', () => {
-      document.body.classList.toggle('show-syllables', readingMode === 'syllables' && toggleShowSyllables.checked);
+      setReadingProfile(readingProfile);
       saveProfile();
     });
   }
@@ -361,78 +416,11 @@ document.addEventListener('DOMContentLoaded', () => {
     toggleColorSyllables.addEventListener('change', () => {
       if (toggleColorSyllables.checked && !toggleShowSyllables.checked) {
         toggleShowSyllables.checked = true;
-        document.body.classList.toggle('show-syllables', readingMode === 'syllables');
       }
-      document.body.classList.toggle('color-syllables', readingMode === 'syllables' && toggleColorSyllables.checked);
+      setReadingProfile(readingProfile);
       saveProfile();
     });
   }
-
-  // --- 2. Inklapbaar Instellingenpaneel (Sidebar) ---
-  const SIDEBAR_COLLAPSED_KEY = 'leesblokjes_paneel_ingeklapt';
-
-  function setSidebarCollapsed(collapsed, save = true) {
-    if (!mainLayout || !btnToggleSidebar) return;
-
-    mainLayout.classList.toggle('sidebar-collapsed', collapsed);
-    btnToggleSidebar.setAttribute('aria-expanded', String(!collapsed));
-    btnToggleSidebar.classList.toggle('is-collapsed', collapsed);
-
-    if (collapsed) {
-      btnToggleSidebar.innerHTML = `
-        <span class="toggle-icon" aria-hidden="true">🎨</span>
-        <span class="toggle-text">Instellingen tonen</span>
-      `;
-      btnToggleSidebar.title = 'Toon de leesinstellingen';
-    } else {
-      btnToggleSidebar.innerHTML = `
-        <span class="toggle-icon" aria-hidden="true">⚙️</span>
-        <span class="toggle-text">Instellingen verbergen</span>
-      `;
-      btnToggleSidebar.title = 'Verberg instellingen voor meer tekstruimte';
-    }
-
-    if (save) {
-      try {
-        localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(collapsed));
-      } catch (e) {
-        console.warn('Kon paneelstatus niet opslaan:', e);
-      }
-    }
-  }
-
-  function loadSidebarState() {
-    try {
-      const saved = localStorage.getItem(SIDEBAR_COLLAPSED_KEY);
-      // Standaard uitgeklapt bij eerste gebruik (indien saved === null of niet 'true')
-      const isCollapsed = saved === 'true';
-      setSidebarCollapsed(isCollapsed, false);
-    } catch (e) {
-      setSidebarCollapsed(false, false);
-    }
-  }
-
-  if (btnToggleSidebar) {
-    btnToggleSidebar.addEventListener('click', () => {
-      const currentlyCollapsed = mainLayout.classList.contains('sidebar-collapsed');
-      const newState = !currentlyCollapsed;
-      setSidebarCollapsed(newState, true);
-      if (newState && typeof showToast === 'function') {
-        showToast('Instellingen verborgen voor meer ruimte. 📖');
-      }
-    });
-  }
-
-  if (btnCloseSidebar) {
-    btnCloseSidebar.addEventListener('click', () => {
-      setSidebarCollapsed(true, true);
-      if (typeof showToast === 'function') {
-        showToast('Instellingen verborgen voor meer ruimte. 📖');
-      }
-    });
-  }
-
-  loadSidebarState();
 
   // --- 3. Tekstinvoer Hulpjes & Woordenteller ---
   function updateCounter() {
@@ -716,6 +704,13 @@ document.addEventListener('DOMContentLoaded', () => {
   function formatTextWithSounds(text) {
     const groups = splitDutchSounds(text).map(group => {
       if (!group.color) return escapeHtml(group.text);
+      if (readingProfile === 'personal') {
+        const enabled = (group.color === 'yellow' && helpControls.longSounds.checked) ||
+          (group.color === 'orange' && helpControls.doubleSounds.checked) ||
+          ((group.color === 'white' || (group.color === 'blue' && group.text.length > 1)) &&
+            helpControls.difficultSounds.checked);
+        if (!enabled) return escapeHtml(group.text);
+      }
       const content = group.marking === 'dots'
         ? Array.from(group.text).map(letter => `<span class="sound-letter">${escapeHtml(letter)}</span>`).join('')
         : escapeHtml(group.text);
@@ -726,17 +721,68 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function formatReadingText(text) {
-    return text.replace(/\S+|\s+/g, token => {
+    return text.replace(/\S+|\s+/g, (token, offset) => {
       if (/^\s+$/.test(token)) return escapeHtml(token);
+      const attributes = wordFocusEnabled()
+        ? ` tabindex="0" role="button" aria-label="Leespositie: ${escapeHtml(token)}" aria-pressed="false"`
+        : '';
+      const start = `<span class="word-group" data-word-start="${offset}"${attributes}>`;
+      if (readingProfile === 'focus') return `${start}${escapeHtml(token)}</span>`;
       if (readingMode === 'syllables') {
-        return `<span class="word-group">${formatTextWithSyllables(token)}</span>`;
+        return `${start}${formatTextWithSyllables(token)}</span>`;
       }
       const pieces = token.split(/([\p{L}\p{M}]+(?:['’-][\p{L}\p{M}]+)*)/u);
       const content = pieces.map((part, index) => index % 2
         ? formatTextWithSounds(part)
         : escapeHtml(part)).join('');
-      return `<span class="word-group">${content}</span>`;
+      return `${start}${content}</span>`;
     });
+  }
+
+  function clearReadingFocus() {
+    outputArea.querySelectorAll('.active-focus, .active-word, .has-word-focus').forEach(element => {
+      element.classList.remove('active-focus', 'active-word', 'has-word-focus');
+      if (element.matches('.word-group[role="button"]')) element.setAttribute('aria-pressed', 'false');
+    });
+    outputArea.classList.remove('has-focus', 'has-word-focus');
+  }
+
+  function focusReadingPart(element) {
+    clearReadingFocus();
+    if (!positionEnabled()) return;
+    if (element.matches('.word-group')) {
+      element.classList.add('active-word');
+      element.setAttribute('aria-pressed', 'true');
+      element.closest('.blokje-content').classList.add('has-word-focus');
+      outputArea.classList.add('has-word-focus');
+    } else {
+      element.classList.add('active-focus');
+      outputArea.classList.add('has-focus');
+    }
+  }
+
+  function handleWordFocus(event) {
+    const word = event.target.closest('.word-group[role="button"]');
+    if (!word || !wordFocusEnabled()) return;
+    if (event.type === 'keydown' && event.key !== 'Enter' && event.key !== ' ') return;
+    event.preventDefault();
+    const active = word.classList.contains('active-word');
+    if (active) clearReadingFocus();
+    else focusReadingPart(word);
+  }
+  outputArea.addEventListener('click', handleWordFocus);
+  outputArea.addEventListener('keydown', handleWordFocus);
+
+  function trackSpeechPosition(utterance, readingUnit, run) {
+    utterance.onboundary = event => {
+      if (run !== speechRun || !wordFocusEnabled() || event.name !== 'word') return;
+      const words = Array.from(readingUnit.querySelectorAll('.word-group'));
+      const word = words.find(element => {
+        const start = Number(element.dataset.wordStart);
+        return event.charIndex >= start && event.charIndex < start + element.textContent.length;
+      });
+      if (word) focusReadingPart(word);
+    };
   }
 
   loadProfile();
@@ -747,7 +793,7 @@ document.addEventListener('DOMContentLoaded', () => {
     currentBlocks = blocks ? [...blocks] : [];
     currentText = originalText;
     outputArea.innerHTML = '';
-    outputArea.classList.remove('has-focus');
+    outputArea.classList.remove('has-focus', 'has-word-focus');
 
     if (!blocks || blocks.length === 0) {
       renderEmptyState();
@@ -757,7 +803,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     outputActions.style.display = 'flex';
-    focusTip.style.display = readingLayout === 'blocks' ? 'block' : 'none';
+    btnReadAll.hidden = !speechEnabled();
+    focusTip.style.display = readingLayout === 'blocks' && positionEnabled() ? 'block' : 'none';
 
     if (readingLayout === 'continuous') {
       const reading = document.createElement('div');
@@ -795,7 +842,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const actions = document.createElement('div');
       actions.className = 'blokje-actions';
 
-      if ('speechSynthesis' in window) {
+      if ('speechSynthesis' in window && speechEnabled()) {
         const speakBtn = document.createElement('button');
         speakBtn.type = 'button';
         speakBtn.className = 'btn-speak-block';
@@ -823,24 +870,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
       // Klik/Enter actie: Focus-highlight modus (leeslampje)
       function toggleFocus() {
+        if (!positionEnabled()) return;
         const isCurrentlyActive = article.classList.contains('active-focus');
-
-        // Reset andere actieve blokjes
-        document.querySelectorAll('.lees-blokje.active-focus').forEach(el => {
-          el.classList.remove('active-focus');
-        });
-
         if (!isCurrentlyActive) {
-          article.classList.add('active-focus');
-          outputArea.classList.add('has-focus');
+          focusReadingPart(article);
           article.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         } else {
-          outputArea.classList.remove('has-focus');
+          clearReadingFocus();
         }
       }
 
-      article.addEventListener('click', toggleFocus);
+      article.addEventListener('click', event => {
+        if (!event.target.closest('.word-group[role="button"]')) toggleFocus();
+      });
       article.addEventListener('keydown', (e) => {
+        if (e.target.closest('.word-group[role="button"]')) return;
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault();
           toggleFocus();
@@ -2023,7 +2067,7 @@ Op een dag vond Pip een geheimzinnig kaartje op de grond. Er stond op: 'De schat
         bookmarkletResult.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
       }
 
-      showToast('Bookmarklet klaar! Sleep de knop naar je bladwijzerbalk. 🪄');
+      showToast('Bladwijzer klaar! Sleep de knop naar je bladwijzerbalk. 🪄');
     });
   }
 
@@ -2032,7 +2076,7 @@ Op een dag vond Pip een geheimzinnig kaartje op de grond. Er stond op: 'De schat
       const { code } = generateBookmarkletCode();
       try {
         await navigator.clipboard.writeText(code);
-        showToast('Bookmarklet-code gekopieerd naar klembord! 📋');
+        showToast('Bladwijzercode gekopieerd naar klembord! 📋');
       } catch (err) {
         showToast('Kon code niet automatisch kopiëren.');
       }
@@ -2159,6 +2203,7 @@ Op een dag vond Pip een geheimzinnig kaartje op de grond. Er stond op: 'De schat
   btnStopAudio.addEventListener('click', stopSpeaking);
 
   function speakSingleBlock(text, buttonElement, blockElement) {
+    if (!speechEnabled()) return;
     if (!synth) {
       showToast('Voorlezen wordt helaas niet ondersteund door deze browser.');
       return;
@@ -2185,9 +2230,8 @@ Op een dag vond Pip een geheimzinnig kaartje op de grond. Er stond op: 'De schat
     activeSpeechButton = buttonElement;
 
     // Activeer focus op dit blokje tijdens het voorlezen
-    document.querySelectorAll('.lees-blokje.active-focus').forEach(el => el.classList.remove('active-focus'));
-    blockElement.classList.add('active-focus');
-    outputArea.classList.add('has-focus');
+    focusReadingPart(blockElement);
+    trackSpeechPosition(currentUtterance, blockElement, run);
 
     currentUtterance.onend = () => {
       if (run === speechRun) stopSpeaking();
@@ -2201,6 +2245,7 @@ Op een dag vond Pip een geheimzinnig kaartje op de grond. Er stond op: 'De schat
   }
 
   btnReadAll.addEventListener('click', () => {
+    if (!speechEnabled()) return;
     if (!synth) {
       showToast('Voorlezen wordt helaas niet ondersteund door deze browser.');
       return;
@@ -2227,9 +2272,7 @@ Op een dag vond Pip een geheimzinnig kaartje op de grond. Er stond op: 'De schat
       const text = el.dataset.originalText || el.querySelector('.blokje-content').textContent;
 
       // Highlight het actieve blokje
-      blockElements.forEach(b => b.classList.remove('active-focus'));
-      el.classList.add('active-focus');
-      outputArea.classList.add('has-focus');
+      focusReadingPart(el);
       el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 
       currentUtterance = new SpeechSynthesisUtterance(text);
@@ -2237,6 +2280,7 @@ Op een dag vond Pip een geheimzinnig kaartje op de grond. Er stond op: 'De schat
       if (nlVoice) currentUtterance.voice = nlVoice;
       currentUtterance.lang = 'nl-NL';
       currentUtterance.rate = 0.9;
+      trackSpeechPosition(currentUtterance, el, run);
 
       currentUtterance.onend = () => {
         if (run !== speechRun) return;

@@ -1,4 +1,4 @@
-# leesblokjes
+# LeesBlokjes™
 
 ## Importbronnen
 
@@ -12,7 +12,42 @@ Webpagina importeren toont alleen Wikipedia-voorbeelden, die via de Wikimedia-AP
 worden opgehaald. Sites die directe browsertoegang blokkeren zijn geen voorbeelden
 meer; hiervoor blijven tekst plakken en de bookmarklet beschikbaar.
 
-## Leesmodi
+## Leesprofiel
+
+Het instellingenpaneel blijft beschikbaar en is niet inklapbaar. De volgorde is
+Lettertype, Lettergrootte, Regelafstand, Woordafstand, Leesprofiel,
+Achtergrondkleur, Tekstweergave en de aanvullende persoonlijke instellingen.
+Leesprofiel toont permanent vier kaarten in een 2x2-raster; precies een kaart is
+actief. De keuze wordt bij verversen hersteld.
+
+- **Klanknavigator** (standaard): kleuren helpen klanken herkennen. Gebruikt
+  exact de bestaande klankgroepen, kleuren en markeringen van LeesBlokjes™.
+- **Focuslezen**: rustige tekst met aanklikbare woorden. Het actieve woord krijgt
+  nadruk; de overige tekst blijft zichtbaar maar minder prominent. Enter of
+  spatie activeert/uitschakelt de woordpositie. Het bestaande leeslampje per
+  alineablok blijft beschikbaar.
+- **Persoonlijke hulp**: schakel lange klanken (aa/ee/oo/uu),
+  tweetekenklanken (ij/ei/ou/au/ie/oe/eu/ui), moeilijke groepen
+  (aai/ooi/oei/eeuw/ieuw/uw en herkende medeklinkerclusters), leespositie en
+  voorleeshulp afzonderlijk in of uit. Uitgeschakelde groepen blijven als gewone
+  tekst zichtbaar. Alle markeringen uit geeft gewone tekst.
+- **Klanken**: de volledige bestaande klankbouwstenen. Voorlopig identiek aan
+  Klanknavigator, zoals afgesproken; er zijn geen nieuwe detectieregels.
+
+Persoonlijke hulp bewaart daarnaast de bestaande opties **Lettergrepen tonen**
+en **Lettergrepen kleuren** onder Overige instellingen. Lettergrepen tonen
+vervangt de selectieve klankmarkeringen; de drie klankschakelaars zijn dan
+uitgeschakeld zonder hun voorkeuren te wissen. De oude losse modusknoppen en de
+uitklapbare klanklegenda zijn verwijderd.
+
+Profielwisselingen maken bestaande uitvoer opnieuw op via `renderBlocks`, zonder
+tekst opnieuw te importeren of nog niet verwerkte wijzigingen in het invoervak
+over de uitvoer te schrijven. Een profielkeuze kan ook aanwezige invoer verwerken
+als nog geen uitvoer bestaat. Woordfocus volgt bij voorlezen de woordgrenzen als
+de browser/stem deze doorgeeft; anders blijft het actieve leesdeel gemarkeerd.
+Profiel- en weergavewisselingen stoppen lopende audio en negeren oude callbacks.
+
+### Afstand en tekstweergave
 
 De compacte instellingen bieden **Woordafstand** direct onder Regelafstand:
 0.8x tot 2.4x (standaard 1.0x), met de herkenbare standen Compact (0.8x),
@@ -26,8 +61,9 @@ Een uitzonderlijk breed woord kan binnen de leeskaart horizontaal worden gescrol
 zonder de pagina te verbreden. De voorkeur wordt in het leesprofiel opgeslagen;
 oudere waarden boven 2.4x worden tot 2.4x begrensd.
 
-Onder Dyslexiemodus kies je daarnaast **Alineablokken** (standaard) of
-**Doorlopende tekst**. Deze keuze staat los van Lettergrepen/Klanken en wordt ook
+In het aparte blok **Tekstweergave**, direct onder Achtergrondkleur, kies je
+**Alineablokken** (standaard) of **Doorlopende tekst**. Deze keuze staat los van
+het leesprofiel en wordt ook
 opgeslagen. Wisselen gebruikt de al verwerkte tekst, zonder nieuwe import of
 tekstopdeling. De centrale `renderBlocks`-functie verzorgt beide weergaven.
 Doorlopende tekst gebruikt precies een brede leeskaart en behoudt de originele alinea's en regeleindes,
@@ -35,13 +71,9 @@ zonder genummerde blokkaarten. Alles voorlezen, stoppen en kopieren blijven werk
 kopieren van doorlopende tekst voegt geen bloknummers toe. Terugwisselen herstelt
 de oorspronkelijke blokken met hun voorleesknoppen en leeslampje.
 
-Kies in het persoonlijk leesprofiel tussen **Lettergrepen** (standaard) en
-**Klanken (beta)**. De keuze wordt samen met het leesprofiel in localStorage
-opgeslagen. De segmented control activeert altijd precies een modus. Wisselen bouwt
-de actuele invoertekst direct opnieuw op, zonder extra klik op Maak leesvriendelijk.
-Als alleen uitvoer aanwezig is, wordt die vanuit de originele tekst opnieuw opgemaakt.
-De opties voor het
-tonen en kleuren van lettergrepen blijven behouden voor de lettergreepmodus.
+De achtergronden zijn **Crème**, **Warmblauw**, **Warmgroen** en **Donker**.
+Warmblauw en Warmgroen gebruiken gedempte, warme tinten; de klankkleuren blijven
+in alle thema's gelijk.
 
 ### Nederlandse lettergrepen
 
@@ -76,7 +108,8 @@ Klankmodus gebruikt de bestaande bouwsteenvorm met de classificatie van de leesk
 De langste klankgroep krijgt voorrang. Hoofdletters, spaties, leestekens en de
 originele tekst voor kopiëren en voorlezen blijven behouden. Klankkleuren blijven
 gelijk in alle achtergrondthema's.
-De volledige klanklegenda blijft beschikbaar via **Leeskaart en klankkleuren**.
+De classificatie hierboven blijft beschikbaar als documentatie, niet als los
+onderdeel in de interface.
 
 Voorbeelden: `school` wordt `[sch] [oo] [l]`, `schrijf` wordt `[schr] [ij] [f]`
 en `nieuws` wordt `[n] [ieuw] [s]`. Langste herkende clusters krijgen voorrang;
@@ -92,11 +125,22 @@ e/ig/lijk op de kaart zijn niet toegevoegd aan de expliciet gevraagde classifica
 ### Opgeslagen voorkeuren
 
 - `leesblokjes_leesprofiel`: onder meer `wordSpacing`, `readingLayout`,
-  `readingMode`, lettertype, grootte, regelafstand en thema.
+  `readingProfile` (`navigator`, `focus`, `personal`, `sounds`), `help`
+  (`longSounds`, `doubleSounds`, `difficultSounds`, `readingPosition`, `speech`),
+  de interne `readingMode`, lettergreepvoorkeuren, lettertype, grootte,
+  regelafstand en thema. Er zijn geen nieuwe localStorage-sleutels.
 - `leesblokjes_instellingen`: migratie van het oude instellingenformaat.
 - `leesblokjes_actieve_import_sectie` en `leesblokjes_laatste_geopende_sectie`:
   gekozen importbron en compatibiliteit met de eerdere bronkeuze.
-- `leesblokjes_paneel_ingeklapt`: zichtbaarheid van het instellingenpaneel.
+- `leesblokjes_paneel_ingeklapt`: oude sleutel; wordt niet meer gelezen of
+  gewijzigd, omdat de profielen niet verborgen mogen worden.
+
+Oude opgeslagen klankmodus wordt profiel Klanken; oude lettergreepinstellingen
+worden Persoonlijke hulp met behoud van tonen/kleuren. Oude gewone tekst behoudt
+gewone tekst door de drie klankmarkeringen uit te schakelen. Een oude gele
+achtergrond wordt Crème; `blauw` en `groen` behouden hun sleutels en krijgen de
+warme tinten. De migratie wordt in het bestaande leesprofiel opgeslagen en
+behoudt de andere voorkeuren. Zonder opgeslagen profiel start Klanknavigator.
 
 ### Tests
 
@@ -119,3 +163,10 @@ Voor 1920x1080, 1366x768 en 390x844 worden alle vijf woordafstandstanden gemeten
 in normale tekst, lettergrepen en klanken, zowel in blokken als doorlopende tekst.
 De suite controleert ook ongewijzigde woordbreedtes, exclusieve DOM-structuren,
 tekstbehoud, kleuren en het ontbreken van horizontale pagina-overflow.
+
+Aanvullende profieltests controleren het permanente 2x2-raster op alle drie
+schermformaten, profielherstel, migraties, ondersteuning aan/uit, woordfocus via
+muis/toetsenbord, de woordpositie bij voorlezen en het negeren van oude
+spraakcallbacks. Er is geen afzonderlijk buildscript: dit is een statische
+HTML/CSS/JavaScript-app; de browsertests laden de echte applicatie en controleren
+de bestaande functionaliteit.
