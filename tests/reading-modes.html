@@ -12,7 +12,8 @@
     (async () => {
       const frame = document.getElementById('app');
       const results = document.getElementById('results');
-      const keys = ['leesblokjes_leesprofiel', 'leesblokjes_instellingen'];
+      const keys = ['leesblokjes_leesprofiel', 'leesblokjes_instellingen',
+        'leesblokjes_actieve_import_sectie', 'leesblokjes_laatste_geopende_sectie'];
       const saved = keys.map(key => localStorage.getItem(key));
       const checks = [];
       function assert(condition, message) {
@@ -36,10 +37,39 @@
         let app = await loadApp();
         let doc = app.document;
         const api = app.LeesBlokjes;
-        const choose = mode => doc.querySelector(`input[name="reading-mode"][value="${mode}"]`).click();
+        const choose = mode => doc.querySelector(`[data-reading-mode="${mode}"]`).click();
+        const isMode = (document, mode) =>
+          document.querySelector(`[data-reading-mode="${mode}"]`).getAttribute('aria-pressed') === 'true';
         const content = () => doc.querySelector('.blokje-content');
-        assert(doc.querySelector('input[name="reading-mode"][value="syllables"]').checked,
+        assert(isMode(doc, 'syllables'),
           'Lettergreepmodus is standaard');
+        assert(api.getActiveImportSection() === 'text', 'Tekst plakken is standaard open');
+        assert(doc.querySelector('.input-card').firstElementChild.matches('.import-navigation') &&
+          doc.querySelectorAll('.import-navigation button').length === 4 &&
+          !doc.querySelector('.accordion-item'), 'Vier bronknoppen boven de invoer, zonder accordeons');
+        for (const source of ['doc', 'web', 'bookmarklet', 'text']) {
+          doc.getElementById(`tab-btn-${source}`).click();
+          const visible = doc.querySelectorAll('.import-panel:not([hidden])');
+          assert(visible.length === 1 && visible[0].id === `import-panel-${source}` &&
+            visible[0].parentElement === doc.querySelector('.input-card'),
+            `Precies een paneel direct onder bronknoppen: ${source}`);
+          assert(doc.querySelectorAll('.import-navigation [aria-pressed="true"]').length === 1,
+            `Precies een actieve bronknop: ${source}`);
+          doc.getElementById(`tab-btn-${source}`).click();
+          assert(api.getActiveImportSection() === source, `Herhaald klikken sluit ${source} niet`);
+          assert(localStorage.getItem(keys[2]) === source, `Bronkeuze wordt opgeslagen: ${source}`);
+        }
+        assert(doc.querySelectorAll('.web-suggestions [data-url]').length === 2 &&
+          Array.from(doc.querySelectorAll('.web-suggestions [data-url]'))
+            .every(button => button.dataset.url.startsWith('https://nl.wikipedia.org/wiki/')) &&
+          !/Jeugdjournaal|Nu\.nl/.test(doc.getElementById('import-panel-web').textContent),
+          'Alleen Wikipedia-voorbeelden, geen geblokkeerde nieuwssites');
+        const badgeStyle = app.getComputedStyle(doc.querySelector('#tab-btn-bookmarklet .badge-beta-tag'));
+        const dyslexiaBadgeStyle = app.getComputedStyle(doc.querySelector('.experimental-divider .badge-beta-tag'));
+        assert(badgeStyle.backgroundColor === dyslexiaBadgeStyle.backgroundColor &&
+          badgeStyle.color === dyslexiaBadgeStyle.color && badgeStyle.borderColor === dyslexiaBadgeStyle.borderColor &&
+          doc.querySelector('.experimental-divider').textContent.includes('Dyslexiemodus'),
+          'Dyslexiemodus heeft dezelfde oranje BETA-badge als websites');
         const groups = [
           ['green', 'a e i o u'],
           ['yellow', 'aa ee oo uu'],
@@ -69,6 +99,64 @@
           assert(JSON.stringify(api.splitDutchSounds(word).map(group => group.text)) === JSON.stringify(expected),
             `Langste groep eerst: ${word}`);
         }
+        const requiredExamples = [
+          ['school', ['sch', 'oo', 'l'], ['blue', 'yellow', 'blue']],
+          ['schrijf', ['schr', 'ij', 'f'], ['blue', 'orange', 'blue']],
+          ['schrijfboek', ['schr', 'ij', 'f', 'b', 'oe', 'k'], ['blue', 'orange', 'blue', 'blue', 'orange', 'blue']],
+          ['nieuws', ['n', 'ieuw', 's'], ['blue', 'white', 'blue']],
+          ['leeuw', ['l', 'eeuw'], ['blue', 'white']],
+          ['vriendelijk', ['vr', 'ie', 'n', 'd', 'e', 'l', 'ij', 'k'],
+            ['blue', 'orange', 'blue', 'blue', 'green', 'blue', 'orange', 'blue']],
+          ['ruimteschip', ['r', 'ui', 'm', 't', 'e', 'sch', 'i', 'p'],
+            ['blue', 'orange', 'blue', 'blue', 'green', 'blue', 'green', 'blue']]
+        ];
+        doc.getElementById('toggle-show-syllables').click();
+        doc.getElementById('toggle-color-syllables').click();
+        for (const [word, expected, colors] of requiredExamples) {
+          doc.getElementById('text-input').value = word;
+          choose('syllables');
+          const before = content().innerHTML;
+          choose('sounds');
+          const rendered = Array.from(content().querySelectorAll('.sound'));
+          assert(JSON.stringify(rendered.map(group => group.textContent)) === JSON.stringify(expected),
+            `Zichtbare klankbouwstenen direct na moduskeuze: ${word}`);
+          assert(rendered.every((group, index) => group.classList.contains(`sound-${colors[index]}`) &&
+            app.getComputedStyle(group).backgroundColor !== 'rgba(0, 0, 0, 0)'),
+            `Elke klankgroep heeft de juiste zichtbare kleur: ${word}`);
+          assert(content().innerHTML !== before && !content().querySelector('.syl') &&
+            content().textContent === word &&
+            Array.from(content().querySelector('.sound-word').childNodes).every(node => node.nodeType === 1),
+            `Geen gewone woordtekst of lettergrepen in klankuitvoer: ${word}`);
+          assert(doc.querySelectorAll('[data-reading-mode][aria-pressed="true"]').length === 1,
+            `Leesmodi zijn wederzijds exclusief: ${word}`);
+          doc.getElementById('btn-convert').click();
+          assert(content().innerHTML.includes('sound-'), `Conversieknop behoudt Klankmodus: ${word}`);
+        }
+        doc.getElementById('text-input').value = 'nieuws';
+        choose('sounds');
+        assert(content().textContent === 'nieuws' && content().querySelector('.sound-dots'),
+          'Opnieuw kiezen bouwt gewijzigde invoer op, niet verouderde uitvoer');
+        doc.getElementById('btn-sample').click();
+        assert(content().querySelector('.sound') && !content().querySelector('.syl'),
+          'Voorbeeldverhaal gebruikt de actieve Klankmodus');
+        api.importText({ text: 'school schrijfboek nieuws leeuw vriendelijk ruimteschip', title: 'Test' });
+        assert(content().querySelectorAll('.sound-word').length === 6 && !content().querySelector('.syl'),
+          'Geimporteerde tekst gebruikt overal klankbouwstenen');
+        const originalExtract = api.DocumentProcessor.extractText;
+        try {
+          api.DocumentProcessor.extractText = async () => ({
+            text: 'school nieuws leeuw', fileName: 'test.docx', wordCount: 3, isScannedOrEmpty: false
+          });
+          await api.handleFileUpload(new app.File(['test'], 'test.docx'));
+          assert(content().querySelectorAll('.sound-word').length === 3 &&
+            content().querySelectorAll('.sound-dots').length === 2,
+            'Documentupload gebruikt de actieve Klankmodus');
+        } finally {
+          api.DocumentProcessor.extractText = originalExtract;
+        }
+        doc.getElementById('btn-clear').click();
+        choose('syllables');
+        doc.getElementById('btn-reset-profile').click();
         const text = "Nederland kraai sneeuw nieuw duw! AAI OOI OEI EEUW IEUW UW.\n'zomer' zee-egel café <img src=x> & 123.";
         api.renderBlocks([text]);
         const syllableHtml = content().innerHTML;
@@ -124,24 +212,71 @@
         assert(JSON.parse(localStorage.getItem(keys[0])).readingMode === 'sounds', 'Keuze wordt opgeslagen in localStorage');
         app = await loadApp();
         doc = app.document;
-        assert(doc.querySelector('input[name="reading-mode"][value="sounds"]').checked &&
+        assert(isMode(doc, 'sounds') &&
           doc.body.classList.contains('sound-mode'), 'Klankmodus wordt hersteld na herladen');
         app.LeesBlokjes.renderBlocks(['meeuw']);
         assert(doc.querySelector('.sound-dots').textContent === 'eeuw', 'Nieuwe uitvoer gebruikt de herstelde modus');
         doc.getElementById('btn-reset-profile').click();
-        assert(doc.querySelector('input[name="reading-mode"][value="syllables"]').checked &&
+        assert(isMode(doc, 'syllables') &&
           !doc.querySelector('.blokje-content .sound'), 'Profiel herstellen schakelt bestaande uitvoer terug');
         localStorage.setItem(keys[0], JSON.stringify({ showSyllables: false, colorSyllables: false, theme: 'groen' }));
         app = await loadApp();
-        assert(app.document.querySelector('input[name="reading-mode"][value="syllables"]').checked &&
+        assert(isMode(app.document, 'syllables') &&
           !app.document.getElementById('toggle-show-syllables').checked,
           'Oude profielen zonder leesmodus behouden lettergreepinstellingen');
         localStorage.removeItem(keys[0]);
         localStorage.setItem(keys[1], JSON.stringify({ showSyllables: false, colorSyllables: false }));
         app = await loadApp();
-        assert(app.document.querySelector('input[name="reading-mode"][value="syllables"]').checked &&
+        assert(isMode(app.document, 'syllables') &&
           JSON.parse(localStorage.getItem(keys[0])).readingMode === 'syllables',
           'Migratie van oude instellingen bewaart de standaardmodus');
+        for (const source of ['doc', 'web', 'bookmarklet', 'text']) {
+          app.document.getElementById(`tab-btn-${source}`).click();
+          app = await loadApp();
+          assert(app.LeesBlokjes.getActiveImportSection() === source &&
+            app.document.querySelectorAll('.import-panel:not([hidden])').length === 1,
+            `Laatste bron wordt hersteld na herladen: ${source}`);
+        }
+        localStorage.setItem(keys[2], 'none');
+        app = await loadApp();
+        assert(app.LeesBlokjes.getActiveImportSection() === 'text', 'Oude ingeklapte accordeonstatus opent tekst plakken');
+        localStorage.setItem(keys[2], 'ongeldig');
+        app = await loadApp();
+        assert(app.LeesBlokjes.getActiveImportSection() === 'text', 'Onbekende opgeslagen bron opent tekst plakken');
+        const originalFetch = app.LeesBlokjes.WebpageProcessor.fetchAndExtract;
+        try {
+          app.LeesBlokjes.WebpageProcessor.fetchAndExtract = async url => ({
+            text: 'school nieuws leeuw', title: 'Dolfijnen (Wikipedia)', url, wordCount: 3
+          });
+          app.document.querySelector('[data-reading-mode="sounds"]').click();
+          app.document.querySelector('.web-suggestions [data-url]').click();
+          await new Promise(resolve => app.setTimeout(resolve, 0));
+          assert(app.document.getElementById('web-url-input').value === 'https://nl.wikipedia.org/wiki/Dolfijnen',
+            'Voorbeeldknop vult de juiste Wikipedia-link in');
+          assert(app.document.querySelectorAll('.blokje-content .sound-word').length === 3 &&
+            app.document.getElementById('web-success').style.display === 'flex',
+            'Webimport bouwt gekleurde klankuitvoer op en toont succes');
+          app.document.getElementById('tab-btn-text').click();
+          assert(app.document.getElementById('text-input').value === 'school nieuws leeuw',
+            'Bronwissel behoudt geimporteerde tekst');
+          app.document.getElementById('tab-btn-web').click();
+          assert(app.document.getElementById('web-success').style.display === 'flex',
+            'Bronwissel behoudt webimportstatus');
+        } finally {
+          app.LeesBlokjes.WebpageProcessor.fetchAndExtract = originalFetch;
+        }
+        app.document.getElementById('text-input').value = requiredExamples.map(([word]) => word).join(' ');
+        app.document.querySelector('[data-reading-mode="sounds"]').click();
+        app.document.getElementById('tab-btn-text').click();
+        for (const width of [320, 390]) {
+          frame.style.width = `${width}px`;
+          await new Promise(resolve => app.requestAnimationFrame(resolve));
+          const output = app.document.querySelector('.blokje-content');
+          assert(app.document.documentElement.scrollWidth <= app.innerWidth &&
+            Array.from(output.querySelectorAll('.sound-word')).every(word => word.scrollWidth <= output.clientWidth + 1),
+            `Klankbouwstenen en navigatie passen zonder horizontale overflow op ${width}px`);
+        }
+        frame.style.width = '100%';
         results.textContent = `${checks.join('\n')}\n\n${checks.length} tests geslaagd.`;
         results.dataset.status = 'passed';
       } catch (error) {

@@ -32,10 +32,10 @@ document.addEventListener('DOMContentLoaded', () => {
   const themeRadios = document.querySelectorAll('input[name="profile-theme"]');
   const btnResetProfile = document.getElementById('btn-reset-profile');
 
-  // Optie Toggles (Experimentele dyslexiemodus)
+  // Dyslexiemodus
   const toggleShowSyllables = document.getElementById('toggle-show-syllables');
   const toggleColorSyllables = document.getElementById('toggle-color-syllables');
-  const readingModeRadios = document.querySelectorAll('input[name="reading-mode"]');
+  const readingModeButtons = document.querySelectorAll('[data-reading-mode]');
   const syllableOptions = document.getElementById('syllable-options');
   const soundModeInfo = document.getElementById('sound-mode-info');
   let readingMode = 'syllables';
@@ -55,6 +55,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const btnCloseAlert = document.getElementById('btn-close-alert');
 
   // --- DOM Elementen voor Webpagina Import & Tabs ---
+  const tabBtnText = document.getElementById('tab-btn-text');
+  const importPanelText = document.getElementById('import-panel-text');
   const tabBtnDoc = document.getElementById('tab-btn-doc');
   const tabBtnWeb = document.getElementById('tab-btn-web');
   const importPanelDoc = document.getElementById('import-panel-doc');
@@ -171,22 +173,27 @@ document.addEventListener('DOMContentLoaded', () => {
     if (updateInputs && toggleColorSyllables) {
       toggleColorSyllables.checked = colorSyl;
     }
-    setReadingMode(profile.readingMode, showSyl, colorSyl, updateInputs);
+    setReadingMode(profile.readingMode, showSyl, colorSyl);
   }
 
-  function setReadingMode(mode, showSyllables, colorSyllables, updateInputs = true) {
+  function setReadingMode(mode, showSyllables, colorSyllables) {
     readingMode = mode === 'sounds' ? 'sounds' : 'syllables';
     document.body.classList.toggle('sound-mode', readingMode === 'sounds');
     document.body.classList.toggle('show-syllables', readingMode === 'syllables' && showSyllables);
     document.body.classList.toggle('color-syllables', readingMode === 'syllables' && colorSyllables);
     syllableOptions.hidden = readingMode === 'sounds';
     soundModeInfo.hidden = readingMode !== 'sounds';
-    if (updateInputs) {
-      readingModeRadios.forEach(radio => { radio.checked = radio.value === readingMode; });
-    }
-    outputArea.querySelectorAll('.lees-blokje').forEach(article => {
-      article.querySelector('.blokje-content').innerHTML = formatReadingText(article.dataset.originalText);
+    readingModeButtons.forEach(button => {
+      button.setAttribute('aria-pressed', String(button.dataset.readingMode === readingMode));
     });
+    const rawText = textInput.value.trim();
+    if (rawText) {
+      renderBlocks(splitIntoReadingBlocks(rawText), false);
+    } else {
+      outputArea.querySelectorAll('.lees-blokje').forEach(article => {
+        article.querySelector('.blokje-content').innerHTML = formatReadingText(article.dataset.originalText);
+      });
+    }
   }
 
   function getActiveProfileFromUI() {
@@ -283,10 +290,9 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  readingModeRadios.forEach(radio => {
-    radio.addEventListener('change', () => {
-      if (!radio.checked) return;
-      setReadingMode(radio.value, toggleShowSyllables.checked, toggleColorSyllables.checked);
+  readingModeButtons.forEach(button => {
+    button.addEventListener('click', () => {
+      setReadingMode(button.dataset.readingMode, toggleShowSyllables.checked, toggleColorSyllables.checked);
       saveProfile();
     });
   });
@@ -318,8 +324,6 @@ document.addEventListener('DOMContentLoaded', () => {
       saveProfile();
     });
   }
-
-  loadProfile();
 
   // --- 2. Inklapbaar Instellingenpaneel (Sidebar) ---
   const SIDEBAR_COLLAPSED_KEY = 'leesblokjes_paneel_ingeklapt';
@@ -606,6 +610,10 @@ document.addEventListener('DOMContentLoaded', () => {
   ].flatMap(({ color, marking, groups }) => groups.map(text => ({ text, color, marking })))
     .sort((a, b) => b.text.length - a.text.length);
 
+  const SOUND_CONSONANTS = [...new Set([...VALID_ONSETS, 'ng', 'nk', 'schr', 'c', 'q', 'x', 'y'])]
+    .filter(group => /^[bcdfghjklmnpqrstvwxyz]+$/.test(group))
+    .sort((a, b) => b.length - a.length);
+
   function splitDutchSounds(word) {
     const lower = word.replace(/[A-Z]/g, letter => letter.toLowerCase());
     const sounds = [];
@@ -617,10 +625,10 @@ document.addEventListener('DOMContentLoaded', () => {
         index += group.text.length;
         continue;
       }
-      const consonants = /^[bcdfghjklmnpqrstvwxyz]+/.exec(lower.slice(index));
-      if (consonants) {
-        sounds.push({ text: word.slice(index, index + consonants[0].length), color: 'blue' });
-        index += consonants[0].length;
+      const consonant = SOUND_CONSONANTS.find(candidate => lower.startsWith(candidate, index));
+      if (consonant) {
+        sounds.push({ text: word.slice(index, index + consonant.length), color: 'blue' });
+        index += consonant.length;
       } else {
         // Onbekende letters/tekens blijven intact, zonder een verzonnen klankkleur.
         const character = String.fromCodePoint(word.codePointAt(index));
@@ -650,10 +658,13 @@ document.addEventListener('DOMContentLoaded', () => {
     return readingMode === 'sounds' ? formatTextWithSounds(text) : formatTextWithSyllables(text);
   }
 
+  loadProfile();
+
   // --- 4. Blokjes Tonen in de UI ---
-  function renderBlocks(blocks) {
+  function renderBlocks(blocks, scrollToOutput = true) {
     stopSpeaking();
     outputArea.innerHTML = '';
+    outputArea.classList.remove('has-focus');
 
     if (!blocks || blocks.length === 0) {
       renderEmptyState();
@@ -742,7 +753,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Scroll netjes naar het begin van de uitvoer
-    outputArea.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    if (scrollToOutput) outputArea.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
   function renderEmptyState() {
@@ -1179,83 +1190,62 @@ Op een dag vond Pip een geheimzinnig kaartje op de grond. Er stond op: 'De schat
     });
   }
 
-  // --- 9. Inklapbare Importsecties (Accordion: Document, Webpagina, Bookmarklet BETA) ---
+  // --- 9. Importnavigatie (slechts een bronpaneel tegelijk) ---
   const IMPORT_SECTION_KEY = 'leesblokjes_actieve_import_sectie';
   const LAST_SECTION_KEY = 'leesblokjes_laatste_geopende_sectie';
 
   const SECTION_CONFIG = {
+    text: {
+      btn: tabBtnText,
+      panel: importPanelText
+    },
     doc: {
       btn: tabBtnDoc,
-      panel: importPanelDoc,
-      item: document.getElementById('accordion-item-doc'),
-      indicator: document.getElementById('indicator-doc')
+      panel: importPanelDoc
     },
     web: {
       btn: tabBtnWeb,
-      panel: importPanelWeb,
-      item: document.getElementById('accordion-item-web'),
-      indicator: document.getElementById('indicator-web')
+      panel: importPanelWeb
     },
     bookmarklet: {
       btn: tabBtnBookmarklet,
-      panel: importPanelBookmarklet,
-      item: document.getElementById('accordion-item-bookmarklet'),
-      indicator: document.getElementById('indicator-bookmarklet')
+      panel: importPanelBookmarklet
     }
   };
 
   /**
-   * Bepaalt welke sectie momenteel geopend is ('doc' | 'web' | 'bookmarklet' | 'none').
+   * Bepaalt welke bron momenteel geopend is.
    */
   function getActiveImportSection() {
-    for (const key of ['doc', 'web', 'bookmarklet']) {
+    for (const key of Object.keys(SECTION_CONFIG)) {
       const cfg = SECTION_CONFIG[key];
-      if (cfg && cfg.panel && cfg.panel.style.display !== 'none') {
+      if (!cfg.panel.hidden) {
         return key;
       }
     }
-    return 'none';
+    return 'text';
   }
 
   /**
-   * Opent of sluit een importsectie (slechts één tegelijk geopend).
-   * @param {'doc'|'web'|'bookmarklet'|'none'} targetSection
-   * @param {boolean} [forceOpen=false]
+   * Selecteert een bron. De huidige bron kan niet worden dichtgeklapt.
+   * @param {'text'|'doc'|'web'|'bookmarklet'|'none'} targetSection
+   * @param {boolean} [forceOpen=false] Behouden voor bestaande API-aanroepen.
    * @param {boolean} [save=true]
    */
   function toggleImportSection(targetSection, forceOpen = false, save = true) {
-    const currentActive = getActiveImportSection();
-    let nextActive = targetSection;
-
-    // Als de gebruiker klikt op de sectie die al geopend is (en niet forceOpen), sluiten we die sectie
-    if (!forceOpen && currentActive === targetSection) {
-      nextActive = 'none';
-    }
+    const nextActive = Object.hasOwn(SECTION_CONFIG, targetSection) ? targetSection : 'text';
 
     // Pas toe op alle secties (slechts één geopend houden)
     for (const [key, cfg] of Object.entries(SECTION_CONFIG)) {
       const isOpen = (key === nextActive);
 
       if (cfg.btn) {
-        cfg.btn.classList.toggle('is-open', isOpen);
         cfg.btn.classList.toggle('is-active', isOpen);
-        cfg.btn.setAttribute('aria-expanded', String(isOpen));
-      }
-
-      if (cfg.item) {
-        cfg.item.classList.toggle('is-expanded', isOpen);
+        cfg.btn.setAttribute('aria-pressed', String(isOpen));
       }
 
       if (cfg.panel) {
-        cfg.panel.style.display = isOpen ? 'block' : 'none';
-      }
-
-      if (cfg.indicator) {
-        if (isOpen) {
-          cfg.indicator.innerHTML = '<span class="accordion-arrow" aria-hidden="true">▼</span> <span class="indicator-text">Klik om in te klappen</span>';
-        } else {
-          cfg.indicator.innerHTML = '<span class="accordion-arrow" aria-hidden="true">▶</span> <span class="indicator-text">Klik om uit te klappen</span>';
-        }
+        cfg.panel.hidden = !isOpen;
       }
     }
 
@@ -1263,9 +1253,7 @@ Op een dag vond Pip een geheimzinnig kaartje op de grond. Er stond op: 'De schat
     if (save) {
       try {
         localStorage.setItem(IMPORT_SECTION_KEY, nextActive);
-        if (nextActive !== 'none') {
-          localStorage.setItem(LAST_SECTION_KEY, nextActive);
-        }
+        localStorage.setItem(LAST_SECTION_KEY, nextActive);
       } catch (err) {
         console.warn('Kon actieve importsectie niet opslaan in localStorage:', err);
       }
@@ -1278,47 +1266,34 @@ Op een dag vond Pip een geheimzinnig kaartje op de grond. Er stond op: 'De schat
    * Alias voor compatibiliteit met bestaande code, testen en extensie-koppelingen.
    */
   function switchImportTab(targetTab) {
-    if (targetTab === 'doc' || targetTab === 'web' || targetTab === 'bookmarklet') {
-      toggleImportSection(targetTab, true, true);
-    } else {
-      toggleImportSection('none', false, true);
-    }
+    toggleImportSection(targetTab, true, true);
   }
 
-  // Event Listeners voor inklapbare accordions
-  if (tabBtnDoc) {
-    tabBtnDoc.addEventListener('click', () => toggleImportSection('doc'));
-  }
-  if (tabBtnWeb) {
-    tabBtnWeb.addEventListener('click', () => toggleImportSection('web'));
-  }
-  if (tabBtnBookmarklet) {
-    tabBtnBookmarklet.addEventListener('click', () => toggleImportSection('bookmarklet'));
-  }
+  Object.entries(SECTION_CONFIG).forEach(([key, cfg]) => {
+    cfg.btn.addEventListener('click', () => switchImportTab(key));
+  });
 
   /**
-   * Laadt toestand bij het openen van de applicatie.
-   * Gedrag: bij openen van de website zijn alle drie de secties ingeklapt (default 'none').
-   * Alleen het tekstvak is zichtbaar.
-   * Indien de gebruiker eerder een sectie heeft geopend en niet heeft ingeklapt,
-   * kan de laatste status worden hersteld.
+   * Eerste bezoek: tekst plakken. Daarna wordt de laatst gebruikte bron hersteld.
+   * De oude accordeonwaarde 'none' wordt vertaald naar tekst plakken.
    */
   function loadImportSectionState() {
     try {
       const saved = localStorage.getItem(IMPORT_SECTION_KEY);
-      if (saved && saved !== 'none' && SECTION_CONFIG[saved]) {
+      if (saved && Object.hasOwn(SECTION_CONFIG, saved)) {
         toggleImportSection(saved, true, false);
       } else {
-        toggleImportSection('none', false, false);
+        toggleImportSection('text', true, false);
       }
     } catch (err) {
-      toggleImportSection('none', false, false);
+      console.warn('Kon actieve importbron niet laden uit localStorage:', err);
+      toggleImportSection('text', true, false);
     }
   }
 
   loadImportSectionState();
 
-  // --- 10. Webpagina Processor & Import (Wikipedia, Jeugdjournaal, Nu.nl & Educatieve Websites) ---
+  // --- 10. Webpagina Processor & Import ---
   /**
    * Modulaire webpagina processor voor het ophalen en extraheren van tekst uit webpagina's.
    * - 100% lokaal in de browser, geen backend, geen betaalde diensten.
@@ -1724,7 +1699,7 @@ Op een dag vond Pip een geheimzinnig kaartje op de grond. Er stond op: 'De schat
     });
   }
 
-  // Klikken op suggestie-chips (bijv. Dolfijnen, De Maan, Jeugdjournaal, Nu.nl)
+  // Klikken op de Wikipedia-voorbeelden
   if (webSuggestions) {
     webSuggestions.addEventListener('click', (e) => {
       const chip = e.target.closest('.btn-chip');

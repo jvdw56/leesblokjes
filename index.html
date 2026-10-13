@@ -206,17 +206,16 @@
             </div>
           </div>
 
-          <!-- Experimentele dyslexiemodus: Woorden opdelen in lettergrepen -->
+          <!-- Dyslexiemodus: lettergrepen of klanken -->
           <div class="experimental-divider">
-            <span class="badge-experimental">🧪 Experimentele dyslexiemodus</span>
-            <span class="experimental-desc">Maakt lange woorden minder moeilijk door ze op te knippen</span>
+            <span class="profile-label-title">Dyslexiemodus <span class="badge-beta-tag">BETA</span></span>
+            <span class="experimental-desc">Lees met bouwstenen voor lettergrepen of klanken</span>
           </div>
 
-          <fieldset class="reading-mode-picker">
-            <legend class="profile-label-title">Leesmodus</legend>
-            <label><input type="radio" name="reading-mode" value="syllables" checked> Lettergrepen</label>
-            <label><input type="radio" name="reading-mode" value="sounds"> Klanken <span class="badge-experimental">🔤 beta</span></label>
-          </fieldset>
+          <div class="reading-mode-picker" role="group" aria-label="Leesmodus">
+            <button type="button" class="reading-mode-button" data-reading-mode="syllables" aria-pressed="true">Lettergrepen</button>
+            <button type="button" class="reading-mode-button" data-reading-mode="sounds" aria-pressed="false">Klanken <span class="badge-beta-tag">BETA</span></button>
+          </div>
 
           <div id="sound-mode-info" class="sound-mode-info" hidden>
             <p>Klankmodus (beta): bouwstenen volgens de leeskaart.</p>
@@ -263,6 +262,14 @@
       <div class="content-column">
         <!-- Invoergebied -->
         <section class="input-card" aria-label="Tekst invoeren">
+      <nav class="import-navigation" aria-label="Importbron kiezen">
+        <button type="button" class="import-source-button is-active" id="tab-btn-text" aria-pressed="true" aria-controls="import-panel-text">✏️ Tekst plakken</button>
+        <button type="button" class="import-source-button" id="tab-btn-doc" aria-pressed="false" aria-controls="import-panel-doc">📄 Document uploaden</button>
+        <button type="button" class="import-source-button" id="tab-btn-web" aria-pressed="false" aria-controls="import-panel-web">🌍 Webpagina importeren</button>
+        <button type="button" class="import-source-button" id="tab-btn-bookmarklet" aria-pressed="false" aria-controls="import-panel-bookmarklet">🧪 LeesBlokjes op websites <span class="badge-beta-tag">BETA</span></button>
+      </nav>
+
+      <div class="import-panel" id="import-panel-text" role="region" aria-labelledby="tab-btn-text">
       <div class="card-header">
         <label for="text-input" class="card-title">
           <span class="step-badge">1</span>
@@ -298,31 +305,10 @@
           <span class="btn-text">Maak leesvriendelijk</span>
         </button>
       </div>
+      </div>
 
-      <!-- Inklapbare importopties (Document, Webpagina, Bookmarklet BETA) -->
-      <div class="import-collapsible-group" id="import-accordion" aria-label="Extra importmogelijkheden">
-
-        <!-- Sectie 1: Document uploaden -->
-        <div class="accordion-item" id="accordion-item-doc">
-          <button
-            type="button"
-            class="accordion-header"
-            id="tab-btn-doc"
-            aria-expanded="false"
-            aria-controls="import-panel-doc"
-          >
-            <span class="accordion-header-left">
-              <span class="accordion-icon" aria-hidden="true">📄</span>
-              <span class="accordion-title">Document uploaden</span>
-              <span class="accordion-badge">Word (.docx) &amp; PDF (.pdf)</span>
-            </span>
-            <span class="accordion-indicator" id="indicator-doc">
-              <span class="accordion-arrow" aria-hidden="true">▶</span>
-              <span class="indicator-text">Klik om uit te klappen</span>
-            </span>
-          </button>
-
-          <div class="accordion-panel" id="import-panel-doc" role="region" aria-labelledby="tab-btn-doc" style="display: none;">
+      <!-- Document uploaden -->
+          <div class="import-panel" id="import-panel-doc" role="region" aria-labelledby="tab-btn-doc" hidden>
             <div
               class="upload-dropzone"
               id="upload-dropzone"
@@ -404,35 +390,14 @@
               <button type="button" class="upload-alert-close" id="btn-close-alert" aria-label="Sluit deze melding">✕</button>
             </div>
           </div>
-        </div>
 
-        <!-- Sectie 2: Webpagina importeren -->
-        <div class="accordion-item" id="accordion-item-web">
-          <button
-            type="button"
-            class="accordion-header"
-            id="tab-btn-web"
-            aria-expanded="false"
-            aria-controls="import-panel-web"
-          >
-            <span class="accordion-header-left">
-              <span class="accordion-icon" aria-hidden="true">🌍</span>
-              <span class="accordion-title">Webpagina importeren</span>
-              <span class="accordion-badge">Wikipedia, Jeugdjournaal, Nu.nl</span>
-            </span>
-            <span class="accordion-indicator" id="indicator-web">
-              <span class="accordion-arrow" aria-hidden="true">▶</span>
-              <span class="indicator-text">Klik om uit te klappen</span>
-            </span>
-          </button>
-
-          <div class="accordion-panel" id="import-panel-web" role="region" aria-labelledby="tab-btn-web" style="display: none;">
+      <!-- Webpagina importeren -->
+          <div class="import-panel" id="import-panel-web" role="region" aria-labelledby="tab-btn-web" hidden>
             <div class="web-import-card">
               <div class="upload-top-bar">
                 <span class="upload-label-title">
                   <span class="emoji-icon" aria-hidden="true">🌍</span> Webpagina importeren
                 </span>
-                <span class="upload-badge">Wikipedia, Jeugdjournaal, Nu.nl &amp; educatieve websites</span>
               </div>
 
               <!-- URL Invoeren & Ophalen Formulier -->
@@ -459,8 +424,6 @@
                 <span class="suggestions-label">Voorbeelden:</span>
                 <button type="button" class="btn-chip" data-url="https://nl.wikipedia.org/wiki/Dolfijnen">🐬 Dolfijnen (Wikipedia)</button>
                 <button type="button" class="btn-chip" data-url="https://nl.wikipedia.org/wiki/Maan">🌙 De Maan (Wikipedia)</button>
-                <button type="button" class="btn-chip" data-url="https://jeugdjournaal.nl">📺 Jeugdjournaal</button>
-                <button type="button" class="btn-chip" data-url="https://www.nu.nl">📰 Nu.nl</button>
               </div>
 
               <!-- Web status: Bezig met ophalen -->
@@ -511,35 +474,15 @@
               <div class="web-bookmarklet-tip">
                 <span class="hint-icon" aria-hidden="true">💡</span>
                 <span class="hint-text">
-                  Wil je websites zoals Nu.nl direct met 1 klik kunnen openen?
+                  Blokkeert een website directe toegang?
                   <button type="button" id="btn-goto-bookmarklet" class="link-btn">Gebruik de Bookmarklet (BETA) ➔</button>
                 </span>
               </div>
             </div>
           </div>
-        </div>
 
-        <!-- Sectie 3: LeesBlokjes op websites (BETA) -->
-        <div class="accordion-item" id="accordion-item-bookmarklet">
-          <button
-            type="button"
-            class="accordion-header"
-            id="tab-btn-bookmarklet"
-            aria-expanded="false"
-            aria-controls="import-panel-bookmarklet"
-          >
-            <span class="accordion-header-left">
-              <span class="accordion-icon" aria-hidden="true">🧪</span>
-              <span class="accordion-title">LeesBlokjes op websites</span>
-              <span class="accordion-badge badge-beta-tag">BETA</span>
-            </span>
-            <span class="accordion-indicator" id="indicator-bookmarklet">
-              <span class="accordion-arrow" aria-hidden="true">▶</span>
-              <span class="indicator-text">Klik om uit te klappen</span>
-            </span>
-          </button>
-
-          <div class="accordion-panel" id="import-panel-bookmarklet" role="region" aria-labelledby="tab-btn-bookmarklet" style="display: none;">
+      <!-- LeesBlokjes op websites (BETA) -->
+          <div class="import-panel" id="import-panel-bookmarklet" role="region" aria-labelledby="tab-btn-bookmarklet" hidden>
             <div class="bookmarklet-card" id="bookmarklet-card">
               <div class="upload-top-bar">
                 <span class="upload-label-title">
@@ -619,9 +562,6 @@
               </div>
             </div>
           </div>
-        </div>
-
-      </div>
     </section>
 
     <!-- Uitvoergebied -->
