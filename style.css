@@ -3,19 +3,23 @@
    ========================================================================== */
 
 :root {
-  /* Typografie basissen */
-  --font-default: 'Lexend', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  --font-dyslexic: 'OpenDyslexic', 'Comic Sans MS', cursive, sans-serif;
-  --font-current: var(--font-default);
+  /* Dynamische instellingen voor persoonlijk leesprofiel */
+  --user-font-family: 'Lexend', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --user-font-size: 20px;
+  --user-line-height: 1.8;
 
-  /* Maten */
-  --font-size-body: 18px;
-  --font-size-blokje: 19px;
-  --line-height-current: 1.7;
+  /* Font basissen */
+  --font-lexend: 'Lexend', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-dyslexic: 'OpenDyslexic', 'Comic Sans MS', cursive, sans-serif;
+  --font-atkinson: 'Atkinson Hyperlegible', system-ui, -apple-system, sans-serif;
+  --font-verdana: Verdana, Geneva, Tahoma, sans-serif;
+  --font-arial: Arial, Helvetica, sans-serif;
+
+  /* Typografie basissen ter referentie */
   --letter-spacing-current: 0.02em;
   --word-spacing-current: 0.04em;
 
-  /* Kleurenpalet - Licht (rustgevende crème en zachte blauw-/pasteltinten) */
+  /* Kleurenpalet Standaard (Crème) */
   --color-bg-page: #fbf9f4; /* Warme, zachte crème: vermindert schittering */
   --color-card-bg: #ffffff;
   --color-text-main: #232b38; /* Zacht antraciet i.p.v. hard zwart */
@@ -55,8 +59,77 @@
 }
 
 /* --------------------------------------------------------------------------
-   Donkere Modus Variabelen
+   Thema's: Crème, Lichtblauw, Lichtgroen, Lichtgeel, Donker
    -------------------------------------------------------------------------- */
+body[data-theme="creme"] {
+  --color-bg-page: #fbf9f4;
+  --color-card-bg: #ffffff;
+  --color-text-main: #232b38;
+  --color-text-muted: #576579;
+  --color-border: #e3e8ee;
+  --blokje-bg: #f5f9fc;
+  --blokje-bg-alt: #fbf8f2;
+  --blokje-border: #d4e2ee;
+  --blokje-active-bg: #fffceb;
+  --blokje-active-border: #f59e0b;
+  --blokje-dimmed-opacity: 0.55;
+  --primary: #2563eb;
+  --primary-hover: #1d4ed8;
+  --primary-light: #eff6ff;
+}
+
+body[data-theme="blauw"] {
+  --color-bg-page: #edf4fd; /* Zacht rustgevend hemelsblauw */
+  --color-card-bg: #ffffff;
+  --color-text-main: #18283d;
+  --color-text-muted: #48617d;
+  --color-border: #bcd5f0;
+  --blokje-bg: #f4f8fe;
+  --blokje-bg-alt: #e9f2fb;
+  --blokje-border: #c0d8f2;
+  --blokje-active-bg: #dbeafe;
+  --blokje-active-border: #2563eb;
+  --blokje-dimmed-opacity: 0.55;
+  --primary: #0284c7;
+  --primary-hover: #0369a1;
+  --primary-light: #e0f2fe;
+}
+
+body[data-theme="groen"] {
+  --color-bg-page: #eef7f2; /* Zacht rustgevend mintgroen */
+  --color-card-bg: #ffffff;
+  --color-text-main: #143522;
+  --color-text-muted: #3d6349;
+  --color-border: #bee2cc;
+  --blokje-bg: #f5faf7;
+  --blokje-bg-alt: #ebf5ee;
+  --blokje-border: #bce0ca;
+  --blokje-active-bg: #dcfce7;
+  --blokje-active-border: #16a34a;
+  --blokje-dimmed-opacity: 0.55;
+  --primary: #059669;
+  --primary-hover: #047857;
+  --primary-light: #d1fae5;
+}
+
+body[data-theme="geel"] {
+  --color-bg-page: #fefae8; /* Zacht warm botergeel / leesliniaal */
+  --color-card-bg: #ffffff;
+  --color-text-main: #332612;
+  --color-text-muted: #6b5735;
+  --color-border: #f7e6a0;
+  --blokje-bg: #fffdf4;
+  --blokje-bg-alt: #fef7db;
+  --blokje-border: #f5e29a;
+  --blokje-active-bg: #fef08a;
+  --blokje-active-border: #d97706;
+  --blokje-dimmed-opacity: 0.55;
+  --primary: #d97706;
+  --primary-hover: #b45309;
+  --primary-light: #fef3c7;
+}
+
+body[data-theme="donker"],
 body.dark-mode {
   --color-bg-page: #151a23; /* Rustig donker leisteen, geen fel OLED-zwart */
   --color-card-bg: #1e2533;
@@ -82,26 +155,6 @@ body.dark-mode {
 }
 
 /* --------------------------------------------------------------------------
-   Opties: Grote Letters & Grote Regelafstand & OpenDyslexic
-   -------------------------------------------------------------------------- */
-body.font-dyslexic {
-  --font-current: var(--font-dyslexic);
-  --letter-spacing-current: 0.03em;
-  --word-spacing-current: 0.06em;
-}
-
-body.font-large {
-  --font-size-body: 19px;
-  --font-size-blokje: 22px;
-}
-
-body.spacing-large {
-  --line-height-current: 2.2;
-  --letter-spacing-current: 0.05em;
-  --word-spacing-current: 0.12em;
-}
-
-/* --------------------------------------------------------------------------
    Reset & Basisinstellingen
    -------------------------------------------------------------------------- */
 *, *::before, *::after {
@@ -116,8 +169,8 @@ html {
 }
 
 body {
-  font-family: var(--font-current);
-  font-size: var(--font-size-body);
+  font-family: var(--user-font-family);
+  font-size: 16px;
   line-height: 1.6;
   color: var(--color-text-main);
   background-color: var(--color-bg-page);
@@ -219,7 +272,7 @@ body {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-bottom: 18px;
+  margin-bottom: 0;
   letter-spacing: normal;
   word-spacing: normal;
 }
@@ -230,7 +283,336 @@ body {
 }
 
 /* --------------------------------------------------------------------------
-   Opties / Toggles Raster
+   Persoonlijk Leesprofiel Paneel
+   -------------------------------------------------------------------------- */
+.profile-card {
+  padding: 24px;
+}
+
+.profile-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.btn-sm {
+  padding: 6px 14px;
+  font-size: 0.85rem;
+}
+
+.profile-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+  min-width: 0;
+}
+
+.profile-item {
+  background-color: var(--blokje-bg);
+  border: 1px solid var(--blokje-border);
+  border-radius: var(--radius-md);
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+  max-width: 100%;
+  transition: border-color var(--transition-fast), background-color var(--transition-normal);
+}
+
+.profile-item:hover {
+  border-color: var(--primary);
+}
+
+.profile-item-font {
+  grid-column: span 2;
+}
+
+.profile-item-theme {
+  grid-column: span 2;
+}
+
+.profile-label-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.profile-label {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  cursor: pointer;
+}
+
+.profile-label-title {
+  font-weight: 700;
+  font-size: 1rem;
+  color: var(--color-text-main);
+  letter-spacing: normal;
+  word-spacing: normal;
+}
+
+.profile-label-hint {
+  font-size: 0.84rem;
+  color: var(--color-text-muted);
+  line-height: 1.35;
+  letter-spacing: normal;
+  word-spacing: normal;
+}
+
+/* Select Dropdown voor Lettertype */
+.select-wrapper {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.profile-select {
+  width: 100%;
+  max-width: 100%;
+  padding: 12px 16px;
+  font-size: 1.02rem;
+  font-family: inherit;
+  color: var(--color-text-main);
+  background-color: var(--color-card-bg);
+  border: 2px solid var(--blokje-border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  outline: none;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.profile-select:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-light);
+}
+
+.profile-select option[value="Lexend"] { font-family: 'Lexend', sans-serif; }
+.profile-select option[value="OpenDyslexic"] { font-family: 'OpenDyslexic', cursive, sans-serif; }
+.profile-select option[value="Atkinson Hyperlegible"] { font-family: 'Atkinson Hyperlegible', sans-serif; }
+.profile-select option[value="Verdana"] { font-family: Verdana, sans-serif; }
+.profile-select option[value="Arial"] { font-family: Arial, sans-serif; }
+
+/* Sliders voor Grootte & Regelafstand */
+.slider-badge {
+  background-color: var(--primary);
+  color: var(--primary-text);
+  padding: 3px 12px;
+  border-radius: var(--radius-full);
+  font-size: 0.88rem;
+  font-weight: 700;
+  letter-spacing: normal;
+  word-spacing: normal;
+  font-variant-numeric: tabular-nums;
+  min-width: 58px;
+  text-align: center;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.12);
+}
+
+.slider-container {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.slider-end-label {
+  font-weight: 700;
+  color: var(--color-text-muted);
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.slider-end-label.small-a {
+  font-size: 0.85rem;
+}
+
+.slider-end-label.large-a {
+  font-size: 1.35rem;
+}
+
+.slider-end-label.expanded-lines {
+  font-size: 1.2rem;
+}
+
+.profile-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 8px;
+  background: var(--color-border);
+  border-radius: var(--radius-full);
+  outline: none;
+  cursor: pointer;
+  transition: background-color var(--transition-fast);
+}
+
+.profile-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--primary);
+  border: 2.5px solid #ffffff;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+  cursor: grab;
+  transition: transform 0.15s ease, background-color 0.15s ease;
+}
+
+.profile-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.18);
+}
+
+.profile-slider::-webkit-slider-thumb:active {
+  cursor: grabbing;
+  transform: scale(1.25);
+}
+
+.profile-slider::-moz-range-thumb {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--primary);
+  border: 2.5px solid #ffffff;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+  cursor: grab;
+  transition: transform 0.15s ease, background-color 0.15s ease;
+}
+
+.profile-slider::-moz-range-thumb:hover {
+  transform: scale(1.18);
+}
+
+.profile-slider::-moz-range-thumb:active {
+  cursor: grabbing;
+  transform: scale(1.25);
+}
+
+.profile-slider:focus-visible {
+  outline: 3px solid var(--accent-amber);
+  outline-offset: 2px;
+}
+
+/* Achtergrondkleur Picker */
+.theme-picker {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 10px;
+  margin-top: 4px;
+  min-width: 0;
+}
+
+.theme-option {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  background-color: var(--color-card-bg);
+  border: 2px solid var(--blokje-border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  user-select: none;
+  min-width: 0;
+  transition: border-color var(--transition-fast), background-color var(--transition-fast), transform var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.theme-option input[type="radio"] {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.theme-option:hover {
+  border-color: var(--primary);
+  transform: translateY(-1px);
+}
+
+.theme-option:has(input:checked) {
+  border-color: var(--primary);
+  background-color: var(--primary-light);
+  box-shadow: 0 0 0 2px var(--primary);
+}
+
+.theme-option:has(input:focus-visible) {
+  outline: 3px solid var(--accent-amber);
+  outline-offset: 2px;
+}
+
+body.dark-mode .theme-option:has(input:checked) {
+  background-color: rgba(59, 130, 246, 0.2);
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px #3b82f6;
+}
+
+.theme-swatch {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.15);
+}
+
+.swatch-creme {
+  background-color: #fbf9f4;
+  border: 2px solid #e5dec9;
+}
+
+.swatch-blauw {
+  background-color: #dbeafe;
+  border: 2px solid #93c5fd;
+}
+
+.swatch-groen {
+  background-color: #dcfce7;
+  border: 2px solid #86efac;
+}
+
+.swatch-geel {
+  background-color: #fef08a;
+  border: 2px solid #fde047;
+}
+
+.swatch-donker {
+  background-color: #1e2533;
+  border: 2px solid #475569;
+}
+
+.theme-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.theme-name {
+  font-weight: 700;
+  font-size: 0.88rem;
+  color: var(--color-text-main);
+  letter-spacing: normal;
+  word-spacing: normal;
+  white-space: nowrap;
+}
+
+.theme-sub {
+  font-size: 0.72rem;
+  color: var(--color-text-muted);
+  letter-spacing: normal;
+  word-spacing: normal;
+  white-space: nowrap;
+}
+
+/* --------------------------------------------------------------------------
+   Opties / Toggles Raster (Experimentele Modus)
    -------------------------------------------------------------------------- */
 .toggles-grid {
   display: grid;
@@ -425,9 +807,9 @@ textarea#text-input {
   width: 100%;
   min-height: 180px;
   padding: 18px;
-  font-family: inherit;
-  font-size: inherit;
-  line-height: inherit;
+  font-family: var(--user-font-family);
+  font-size: var(--user-font-size);
+  line-height: var(--user-line-height);
   letter-spacing: inherit;
   word-spacing: inherit;
   color: var(--color-text-main);
@@ -614,8 +996,9 @@ body.dark-mode .focus-tip {
   border-left-color: var(--primary);
   border-radius: var(--radius-md);
   padding: 20px 22px;
-  font-size: var(--font-size-blokje);
-  line-height: inherit;
+  font-family: var(--user-font-family);
+  font-size: var(--user-font-size);
+  line-height: var(--user-line-height);
   letter-spacing: inherit;
   word-spacing: inherit;
   cursor: pointer;
@@ -675,6 +1058,8 @@ body.dark-mode .focus-tip {
   background-color: rgba(0, 0, 0, 0.04);
   padding: 3px 10px;
   border-radius: var(--radius-full);
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 body.dark-mode .blokje-badge {
@@ -714,101 +1099,143 @@ body.dark-mode .blokje-badge {
 }
 
 .blokje-content {
+  font-family: var(--user-font-family);
+  font-size: var(--user-font-size);
+  line-height: var(--user-line-height);
   color: var(--color-text-main);
   word-break: break-word;
 }
 
+body.show-syllables .blokje-content {
+  line-height: calc(var(--user-line-height) + 0.35);
+}
+
 /* --------------------------------------------------------------------------
-   Lettergrepen Modus (Experimenteel)
+   Lettergrepen Modus (Experimenteel - Bouwstenen)
    -------------------------------------------------------------------------- */
 .syl-word {
   display: inline;
-  white-space: nowrap;
 }
 
-/* Scheidingsteken: standaard verborgen, zichtbaar wanneer optie 'Lettergrepen tonen' aan staat */
+body.show-syllables .syl-word {
+  display: inline-flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 5px;
+  margin: 2px 0 2px 1px;
+  vertical-align: baseline;
+  max-width: 100%;
+}
+
+/* Scheidingsteken: verborgen omdat de losse bouwstenen zelf als afscheiding dienen */
 .syl-sep {
-  display: none;
-  font-weight: 500;
-  color: var(--color-text-muted);
-  opacity: 0.65;
-  margin: 0 3px;
-  user-select: none;
+  display: none !important;
 }
 
-body.show-syllables .syl-sep {
-  display: inline;
-}
-
-/* Basis lettergreep element */
-.syl {
-  transition: background-color var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast);
-}
-
-/* Wanneer 'Lettergrepen kleuren' geactiveerd is samen met 'Lettergrepen tonen' */
-body.show-syllables.color-syllables .syl {
-  padding: 1px 5px;
-  border-radius: 4px;
+/* Basis lettergreep element - de "Bouwsteen" */
+.syl-punct {
   display: inline-block;
-  line-height: 1.35;
+  margin-left: -4px;
+  font-weight: inherit;
+  user-select: text;
 }
 
-/* 4 Rustige Pastelkleuren (Lichte Modus)
+.syl {
+  transition: background-color var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast), transform var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+body.show-syllables .syl {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 11px;
+  border-radius: 10px;
+  font-weight: 500;
+  line-height: 1.25;
+  user-select: text;
+  vertical-align: middle;
+  cursor: default;
+}
+
+body.show-syllables .syl:hover {
+  transform: translateY(-1px);
+}
+
+/* 4 Rustige Pastel Bouwstenen (Lichte Modus)
    - Lichtblauw, Lichtgroen, Lichtgeel, Lichtpaars
-   - Nooit fel, hoge leesbaarheid */
+   - Nooit fel, hoge leesbaarheid en voelt als een echte bouwsteen */
 body.show-syllables.color-syllables .syl-c0 {
-  background-color: #dbeafe; /* Rustig lichtblauw */
+  background-color: #dbeafe; /* Lichtblauw */
+  border: 1.5px solid #bfdbfe;
   color: #1e3a8a;
+  box-shadow: 0 2px 0 rgba(30, 58, 138, 0.12), 0 2px 4px rgba(0, 0, 0, 0.04);
 }
 
 body.show-syllables.color-syllables .syl-c1 {
-  background-color: #dcfce7; /* Rustig lichtgroen */
+  background-color: #dcfce7; /* Lichtgroen */
+  border: 1.5px solid #bbf7d0;
   color: #14532d;
+  box-shadow: 0 2px 0 rgba(20, 83, 45, 0.12), 0 2px 4px rgba(0, 0, 0, 0.04);
 }
 
 body.show-syllables.color-syllables .syl-c2 {
-  background-color: #fef3c7; /* Rustig lichtgeel */
+  background-color: #fef3c7; /* Lichtgeel */
+  border: 1.5px solid #fde047;
   color: #78350f;
+  box-shadow: 0 2px 0 rgba(120, 53, 15, 0.12), 0 2px 4px rgba(0, 0, 0, 0.04);
 }
 
 body.show-syllables.color-syllables .syl-c3 {
-  background-color: #f3e8ff; /* Rustig lichtpaars */
+  background-color: #f3e8ff; /* Lichtpaars */
+  border: 1.5px solid #e9d5ff;
   color: #581c87;
+  box-shadow: 0 2px 0 rgba(88, 28, 135, 0.12), 0 2px 4px rgba(0, 0, 0, 0.04);
 }
 
-/* 4 Rustige Pastelkleuren (Donkere Modus)
+/* 4 Rustige Pastel Bouwstenen (Donkere Modus)
    - Gedempt en zacht, voorkomt verblinding op donkere achtergrond */
 body.dark-mode.show-syllables.color-syllables .syl-c0 {
-  background-color: #1c2b42;
-  color: #93c5fd;
-  border: 1px solid #273b5c;
+  background-color: #1e2f47;
+  border: 1.5px solid #3b82f6;
+  color: #bfdbfe;
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.4), 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
 body.dark-mode.show-syllables.color-syllables .syl-c1 {
-  background-color: #153026;
-  color: #86efac;
-  border: 1px solid #1f4537;
+  background-color: #153828;
+  border: 1.5px solid #22c55e;
+  color: #bbf7d0;
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.4), 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
 body.dark-mode.show-syllables.color-syllables .syl-c2 {
-  background-color: #362912;
-  color: #fde68a;
-  border: 1px solid #4d3a19;
+  background-color: #3d3014;
+  border: 1.5px solid #eab308;
+  color: #fef08a;
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.4), 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
 body.dark-mode.show-syllables.color-syllables .syl-c3 {
-  background-color: #2b1c40;
-  color: #d8b4fe;
-  border: 1px solid #3d275b;
+  background-color: #2f1d47;
+  border: 1.5px solid #a855f7;
+  color: #e9d5ff;
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.4), 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
 /* Wanneer lettergrepen tonen aan staat maar kleuren uit:
-   Scheidingstekens blijven zichtbaar, maar geen achtergrondkleuren */
+   Elke lettergreep is nog steeds een duidelijk afgerond neutraal blokje */
 body.show-syllables:not(.color-syllables) .syl {
-  background-color: transparent !important;
-  color: inherit !important;
-  border: none !important;
-  padding: 0 !important;
+  background-color: var(--color-card-bg);
+  border: 1.5px solid #cbd5e1;
+  color: var(--color-text-main);
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.05), 0 2px 4px rgba(0, 0, 0, 0.03);
+}
+
+body.dark-mode.show-syllables:not(.color-syllables) .syl {
+  background-color: #252e3e;
+  border: 1.5px solid #475569;
+  color: var(--color-text-main);
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.4), 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
 /* --------------------------------------------------------------------------
@@ -877,6 +1304,25 @@ body.show-syllables:not(.color-syllables) .syl {
     padding: 18px 14px;
   }
 
+  .profile-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .profile-item-font,
+  .profile-item-theme {
+    grid-column: span 1;
+  }
+
+  .theme-picker {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+
+  .theme-option:last-child {
+    grid-column: span 2;
+  }
+
   .options-heading {
     font-size: 1.1rem;
     gap: 8px;
@@ -915,6 +1361,20 @@ body.show-syllables:not(.color-syllables) .syl {
 
   .lees-blokje {
     padding: 16px;
+  }
+
+  /* Mobiele lettergreep bouwstenen */
+  body.show-syllables .syl-word {
+    gap: 3.5px;
+    margin: 2px 0 2px 1px;
+    flex-wrap: wrap; /* Voorkomt overflow bij lange woorden op smalle telefoonschermen */
+    max-width: 100%;
+  }
+
+  body.show-syllables .syl {
+    padding: 3px 8px;
+    border-radius: 8px;
+    font-size: 0.95em;
   }
 }
 

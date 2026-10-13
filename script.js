@@ -18,11 +18,16 @@ document.addEventListener('DOMContentLoaded', () => {
   const btnStopAudio = document.getElementById('btn-stop-audio');
   const btnCopy = document.getElementById('btn-copy');
 
-  // Optie Toggles
-  const toggleDyslexic = document.getElementById('toggle-opendyslexic');
-  const toggleLargeFont = document.getElementById('toggle-large-font');
-  const toggleLargeSpacing = document.getElementById('toggle-large-spacing');
-  const toggleDarkMode = document.getElementById('toggle-dark-mode');
+  // --- DOM Elementen voor Persoonlijk Leesprofiel ---
+  const profileFont = document.getElementById('profile-font');
+  const profileFontSize = document.getElementById('profile-font-size');
+  const valFontSize = document.getElementById('val-font-size');
+  const profileLineHeight = document.getElementById('profile-line-height');
+  const valLineHeight = document.getElementById('val-line-height');
+  const themeRadios = document.querySelectorAll('input[name="profile-theme"]');
+  const btnResetProfile = document.getElementById('btn-reset-profile');
+
+  // Optie Toggles (Experimentele dyslexiemodus)
   const toggleShowSyllables = document.getElementById('toggle-show-syllables');
   const toggleColorSyllables = document.getElementById('toggle-color-syllables');
 
@@ -31,95 +36,203 @@ document.addEventListener('DOMContentLoaded', () => {
   let currentUtterance = null;
   let activeSpeechButton = null;
 
-  // --- 1. Instellingen Laden & Opslaan ---
-  const SETTINGS_KEY = 'leesblokjes_instellingen';
+  // --- 1. Persoonlijk Leesprofiel Laden, Toepassen & Opslaan ---
+  const PROFILE_KEY = 'leesblokjes_leesprofiel';
+  const OLD_SETTINGS_KEY = 'leesblokjes_instellingen';
 
-  function loadSettings() {
+  const FONT_MAP = {
+    'Lexend': "'Lexend', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+    'OpenDyslexic': "'OpenDyslexic', 'Comic Sans MS', cursive, sans-serif",
+    'Atkinson Hyperlegible': "'Atkinson Hyperlegible', system-ui, -apple-system, sans-serif",
+    'Verdana': "Verdana, Geneva, Tahoma, sans-serif",
+    'Arial': "Arial, Helvetica, sans-serif"
+  };
+
+  const DEFAULT_PROFILE = {
+    font: 'Lexend',
+    fontSize: 20,
+    lineHeight: 1.8,
+    theme: 'creme',
+    showSyllables: true,
+    colorSyllables: true
+  };
+
+  function applyProfile(profile, updateInputs = true) {
+    // 1. Lettertype
+    const fontName = FONT_MAP[profile.font] ? profile.font : 'Lexend';
+    const fontFamily = FONT_MAP[fontName];
+    document.documentElement.style.setProperty('--user-font-family', fontFamily);
+    if (updateInputs && profileFont) {
+      profileFont.value = fontName;
+    }
+
+    // 2. Tekstgrootte (14px - 32px)
+    const fontSize = Math.min(32, Math.max(14, Number(profile.fontSize) || 20));
+    document.documentElement.style.setProperty('--user-font-size', `${fontSize}px`);
+    if (updateInputs && profileFontSize) {
+      profileFontSize.value = fontSize;
+    }
+    if (valFontSize) {
+      valFontSize.textContent = `${fontSize} px`;
+    }
+
+    // 3. Regelafstand (1.2 - 2.5)
+    const rawLineHeight = Number(profile.lineHeight);
+    const lineHeight = Math.min(2.5, Math.max(1.2, isNaN(rawLineHeight) ? 1.8 : rawLineHeight));
+    const formattedLineHeight = lineHeight.toFixed(1);
+    document.documentElement.style.setProperty('--user-line-height', formattedLineHeight);
+    if (updateInputs && profileLineHeight) {
+      profileLineHeight.value = formattedLineHeight;
+    }
+    if (valLineHeight) {
+      valLineHeight.textContent = `${formattedLineHeight}×`;
+    }
+
+    // 4. Achtergrondkleur
+    const validThemes = ['creme', 'blauw', 'groen', 'geel', 'donker'];
+    const theme = validThemes.includes(profile.theme) ? profile.theme : 'creme';
+    document.body.setAttribute('data-theme', theme);
+    document.body.classList.toggle('dark-mode', theme === 'donker');
+    if (updateInputs) {
+      const activeRadio = document.querySelector(`input[name="profile-theme"][value="${theme}"]`);
+      if (activeRadio) activeRadio.checked = true;
+    }
+
+    // 5. Lettergrepen
+    const showSyl = Boolean(profile.showSyllables);
+    const colorSyl = Boolean(profile.colorSyllables);
+    if (updateInputs && toggleShowSyllables) {
+      toggleShowSyllables.checked = showSyl;
+    }
+    if (updateInputs && toggleColorSyllables) {
+      toggleColorSyllables.checked = colorSyl;
+    }
+    document.body.classList.toggle('show-syllables', showSyl);
+    document.body.classList.toggle('color-syllables', colorSyl);
+  }
+
+  function getActiveProfileFromUI() {
+    const selectedTheme = document.querySelector('input[name="profile-theme"]:checked')?.value || 'creme';
+    return {
+      font: profileFont ? profileFont.value : 'Lexend',
+      fontSize: profileFontSize ? Number(profileFontSize.value) : 20,
+      lineHeight: profileLineHeight ? Number(profileLineHeight.value) : 1.8,
+      theme: selectedTheme,
+      showSyllables: Boolean(toggleShowSyllables?.checked),
+      colorSyllables: Boolean(toggleColorSyllables?.checked)
+    };
+  }
+
+  function saveProfile() {
     try {
-      const saved = JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}');
-      
-      if (saved.opendyslexic) {
-        toggleDyslexic.checked = true;
-        document.body.classList.add('font-dyslexic');
+      const profile = getActiveProfileFromUI();
+      localStorage.setItem(PROFILE_KEY, JSON.stringify(profile));
+    } catch (e) {
+      console.warn('Kon leesprofiel niet opslaan in localStorage:', e);
+    }
+  }
+
+  function loadProfile() {
+    try {
+      const savedRaw = localStorage.getItem(PROFILE_KEY);
+      if (savedRaw) {
+        const saved = JSON.parse(savedRaw);
+        applyProfile({ ...DEFAULT_PROFILE, ...saved }, true);
+        return;
       }
-      if (saved.largeFont) {
-        toggleLargeFont.checked = true;
-        document.body.classList.add('font-large');
+
+      // Migratie van eventuele eerdere instellingen
+      const oldRaw = localStorage.getItem(OLD_SETTINGS_KEY);
+      if (oldRaw) {
+        const old = JSON.parse(oldRaw);
+        const migrated = {
+          font: old.opendyslexic ? 'OpenDyslexic' : 'Lexend',
+          fontSize: old.largeFont ? 24 : 20,
+          lineHeight: old.largeSpacing ? 2.2 : 1.8,
+          theme: old.darkMode ? 'donker' : 'creme',
+          showSyllables: old.showSyllables !== undefined ? old.showSyllables : true,
+          colorSyllables: old.colorSyllables !== undefined ? old.colorSyllables : true
+        };
+        applyProfile(migrated, true);
+        saveProfile();
+        return;
       }
-      if (saved.largeSpacing) {
-        toggleLargeSpacing.checked = true;
-        document.body.classList.add('spacing-large');
+
+      // Standaard profiel
+      applyProfile(DEFAULT_PROFILE, true);
+    } catch (e) {
+      console.warn('Kon leesprofiel niet laden:', e);
+      applyProfile(DEFAULT_PROFILE, true);
+    }
+  }
+
+  // --- Event Listeners voor Direct Effect ---
+  if (profileFont) {
+    profileFont.addEventListener('change', () => {
+      const fontName = profileFont.value;
+      const fontFamily = FONT_MAP[fontName] || FONT_MAP['Lexend'];
+      document.documentElement.style.setProperty('--user-font-family', fontFamily);
+      saveProfile();
+    });
+  }
+
+  if (profileFontSize) {
+    profileFontSize.addEventListener('input', () => {
+      const fontSize = Number(profileFontSize.value);
+      document.documentElement.style.setProperty('--user-font-size', `${fontSize}px`);
+      if (valFontSize) valFontSize.textContent = `${fontSize} px`;
+      saveProfile();
+    });
+  }
+
+  if (profileLineHeight) {
+    profileLineHeight.addEventListener('input', () => {
+      const lineHeight = Number(profileLineHeight.value).toFixed(1);
+      document.documentElement.style.setProperty('--user-line-height', lineHeight);
+      if (valLineHeight) valLineHeight.textContent = `${lineHeight}×`;
+      saveProfile();
+    });
+  }
+
+  themeRadios.forEach(radio => {
+    radio.addEventListener('change', () => {
+      if (radio.checked) {
+        document.body.setAttribute('data-theme', radio.value);
+        document.body.classList.toggle('dark-mode', radio.value === 'donker');
+        saveProfile();
       }
-      if (saved.darkMode) {
-        toggleDarkMode.checked = true;
-        document.body.classList.add('dark-mode');
+    });
+  });
+
+  if (btnResetProfile) {
+    btnResetProfile.addEventListener('click', () => {
+      applyProfile(DEFAULT_PROFILE, true);
+      saveProfile();
+      if (typeof showToast === 'function') {
+        showToast('Standaard leesprofiel hersteld! 🔄');
       }
-      if (saved.showSyllables) {
+    });
+  }
+
+  if (toggleShowSyllables) {
+    toggleShowSyllables.addEventListener('change', () => {
+      document.body.classList.toggle('show-syllables', toggleShowSyllables.checked);
+      saveProfile();
+    });
+  }
+
+  if (toggleColorSyllables) {
+    toggleColorSyllables.addEventListener('change', () => {
+      if (toggleColorSyllables.checked && !toggleShowSyllables.checked) {
         toggleShowSyllables.checked = true;
         document.body.classList.add('show-syllables');
       }
-      if (saved.colorSyllables) {
-        toggleColorSyllables.checked = true;
-        document.body.classList.add('color-syllables');
-      }
-    } catch (e) {
-      console.warn('Kon instellingen niet laden uit localStorage:', e);
-    }
+      document.body.classList.toggle('color-syllables', toggleColorSyllables.checked);
+      saveProfile();
+    });
   }
 
-  function saveSettings() {
-    try {
-      const settings = {
-        opendyslexic: toggleDyslexic.checked,
-        largeFont: toggleLargeFont.checked,
-        largeSpacing: toggleLargeSpacing.checked,
-        darkMode: toggleDarkMode.checked,
-        showSyllables: toggleShowSyllables.checked,
-        colorSyllables: toggleColorSyllables.checked
-      };
-      localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
-    } catch (e) {
-      console.warn('Kon instellingen niet opslaan:', e);
-    }
-  }
-
-  // Toggle Handlers
-  toggleDyslexic.addEventListener('change', () => {
-    document.body.classList.toggle('font-dyslexic', toggleDyslexic.checked);
-    saveSettings();
-  });
-
-  toggleLargeFont.addEventListener('change', () => {
-    document.body.classList.toggle('font-large', toggleLargeFont.checked);
-    saveSettings();
-  });
-
-  toggleLargeSpacing.addEventListener('change', () => {
-    document.body.classList.toggle('spacing-large', toggleLargeSpacing.checked);
-    saveSettings();
-  });
-
-  toggleDarkMode.addEventListener('change', () => {
-    document.body.classList.toggle('dark-mode', toggleDarkMode.checked);
-    saveSettings();
-  });
-
-  toggleShowSyllables.addEventListener('change', () => {
-    document.body.classList.toggle('show-syllables', toggleShowSyllables.checked);
-    saveSettings();
-  });
-
-  toggleColorSyllables.addEventListener('change', () => {
-    // Als kleuren ingeschakeld worden maar tonen staat nog uit, schakel tonen direct mee in
-    if (toggleColorSyllables.checked && !toggleShowSyllables.checked) {
-      toggleShowSyllables.checked = true;
-      document.body.classList.add('show-syllables');
-    }
-    document.body.classList.toggle('color-syllables', toggleColorSyllables.checked);
-    saveSettings();
-  });
-
-  loadSettings();
+  loadProfile();
 
   // --- 2. Tekstinvoer Hulpjes & Woordenteller ---
   function updateCounter() {
@@ -300,21 +413,34 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function formatTextWithSyllables(text) {
     if (!text) return '';
-    const tokens = text.split(/([a-zA-ZÀ-ÿ]+)/);
-    return tokens.map(token => {
-      if (/^[a-zA-ZÀ-ÿ]+$/.test(token)) {
-        const syllables = splitDutchSyllables(token);
+    // Match a word (including hyphens/apostrophes) + optional immediately following punctuation, or any non-word chunk
+    const regex = /([a-zA-ZÀ-ÿ]+(?:['’-][a-zA-ZÀ-ÿ]+)*)([.,!?:;]*)|([^a-zA-ZÀ-ÿ]+)/g;
+    let result = '';
+    let match;
+
+    while ((match = regex.exec(text)) !== null) {
+      const word = match[1];
+      const punct = match[2];
+      const nonWord = match[3];
+
+      if (word) {
+        const syllables = splitDutchSyllables(word);
         if (syllables.length > 1) {
           const sylSpans = syllables.map((syl, sIdx) => {
             const colorClass = `syl-c${sIdx % 4}`;
             return `<span class="syl ${colorClass}">${escapeHtml(syl)}</span>`;
           }).join('<span class="syl-sep" aria-hidden="true">|</span>');
-          return `<span class="syl-word">${sylSpans}</span>`;
+          const punctSpan = punct ? `<span class="syl-punct">${escapeHtml(punct)}</span>` : '';
+          result += `<span class="syl-word">${sylSpans}${punctSpan}</span>`;
+        } else {
+          result += escapeHtml(word + (punct || ''));
         }
-        return escapeHtml(token);
+      } else if (nonWord) {
+        result += escapeHtml(nonWord);
       }
-      return escapeHtml(token);
-    }).join('');
+    }
+
+    return result || escapeHtml(text);
   }
 
   // --- 4. Blokjes Tonen in de UI ---

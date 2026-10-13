@@ -14,6 +14,9 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/opendyslexic@5.0.3/index.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/opendyslexic@5.0.3/700.css">
   
+  <!-- Atkinson Hyperlegible: ontworpen door Braille Institute voor maximale leesbaarheid -->
+  <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet">
+  
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -32,61 +35,141 @@
       </p>
     </header>
 
-    <!-- Instellingen / Opties -->
-    <section class="options-card" aria-label="Leesopties instellen">
-      <h2 class="options-heading">
-        <span class="icon" aria-hidden="true">⚙️</span>
-        Kies wat jij fijn vindt lezen
-      </h2>
+    <!-- Instellingenpaneel: Persoonlijk Leesprofiel -->
+    <section class="options-card profile-card" aria-label="Persoonlijk leesprofiel instellen">
+      <div class="profile-header">
+        <h2 class="options-heading">
+          <span class="icon" aria-hidden="true">🎨</span>
+          Jouw persoonlijke leesprofiel
+        </h2>
+        <button type="button" id="btn-reset-profile" class="btn-ghost btn-sm" title="Standaard leesprofiel herstellen">
+          <span class="emoji-icon" aria-hidden="true">🔄</span> Standaard
+        </button>
+      </div>
 
-      <div class="toggles-grid">
-        <!-- Optie 1: OpenDyslexic -->
-        <label class="toggle-control" for="toggle-opendyslexic">
-          <div class="toggle-info">
-            <span class="toggle-title">OpenDyslexic lettertype</span>
-            <span class="toggle-desc">Letters met zware onderkant zodat ze minder dansen</span>
+      <div class="profile-grid">
+        <!-- 1. Lettertype -->
+        <div class="profile-item profile-item-font">
+          <label for="profile-font" class="profile-label">
+            <span class="profile-label-title">Lettertype</span>
+            <span class="profile-label-hint">Kies letters die voor jou het fijnst en rustigst zijn</span>
+          </label>
+          <div class="select-wrapper">
+            <select id="profile-font" class="profile-select" aria-label="Kies een lettertype">
+              <option value="Lexend">Lexend (Speciaal voor makkelijker lezen)</option>
+              <option value="OpenDyslexic">OpenDyslexic (Verzwaarde letters tegen dansen)</option>
+              <option value="Atkinson Hyperlegible">Atkinson Hyperlegible (Extra herkenbare lettervormen)</option>
+              <option value="Verdana">Verdana (Ruime, duidelijke letters)</option>
+              <option value="Arial">Arial (Bekend en strak lettertype)</option>
+            </select>
           </div>
-          <div class="switch">
-            <input type="checkbox" id="toggle-opendyslexic" role="switch" aria-label="OpenDyslexic lettertype in- of uitschakelen">
-            <span class="slider"></span>
-          </div>
-        </label>
+        </div>
 
-        <!-- Optie 2: Grote letters -->
-        <label class="toggle-control" for="toggle-large-font">
-          <div class="toggle-info">
-            <span class="toggle-title">Grote letters</span>
-            <span class="toggle-desc">Extra duidelijke en grote lettergrootte</span>
+        <!-- 2. Tekstgrootte (Slider 14px tot 32px) -->
+        <div class="profile-item">
+          <div class="profile-label-row">
+            <label for="profile-font-size" class="profile-label">
+              <span class="profile-label-title">Tekstgrootte</span>
+              <span class="profile-label-hint">Van klein naar lekker groot</span>
+            </label>
+            <span id="val-font-size" class="slider-badge" aria-live="polite">20 px</span>
           </div>
-          <div class="switch">
-            <input type="checkbox" id="toggle-large-font" role="switch" aria-label="Grote letters in- of uitschakelen">
-            <span class="slider"></span>
+          <div class="slider-container">
+            <span class="slider-end-label small-a" aria-hidden="true">A</span>
+            <input
+              type="range"
+              id="profile-font-size"
+              class="profile-slider"
+              min="14"
+              max="32"
+              step="1"
+              value="20"
+              aria-label="Tekstgrootte in pixels van 14 tot 32"
+            >
+            <span class="slider-end-label large-a" aria-hidden="true">A</span>
           </div>
-        </label>
+        </div>
 
-        <!-- Optie 3: Grote regelafstand -->
-        <label class="toggle-control" for="toggle-large-spacing">
-          <div class="toggle-info">
-            <span class="toggle-title">Grote regelafstand</span>
-            <span class="toggle-desc">Meer witruimte tussen de regels en woorden</span>
+        <!-- 3. Regelafstand (Slider 1.2 tot 2.5) -->
+        <div class="profile-item">
+          <div class="profile-label-row">
+            <label for="profile-line-height" class="profile-label">
+              <span class="profile-label-title">Regelafstand</span>
+              <span class="profile-label-hint">Ruimte tussen de regels</span>
+            </label>
+            <span id="val-line-height" class="slider-badge" aria-live="polite">1.8×</span>
           </div>
-          <div class="switch">
-            <input type="checkbox" id="toggle-large-spacing" role="switch" aria-label="Grote regelafstand in- of uitschakelen">
-            <span class="slider"></span>
+          <div class="slider-container">
+            <span class="slider-end-label" aria-hidden="true">≡</span>
+            <input
+              type="range"
+              id="profile-line-height"
+              class="profile-slider"
+              min="1.2"
+              max="2.5"
+              step="0.1"
+              value="1.8"
+              aria-label="Regelafstand van 1.2 tot 2.5"
+            >
+            <span class="slider-end-label expanded-lines" aria-hidden="true">☰</span>
           </div>
-        </label>
+        </div>
 
-        <!-- Optie 4: Donkere modus -->
-        <label class="toggle-control" for="toggle-dark-mode">
-          <div class="toggle-info">
-            <span class="toggle-title">Donkere modus</span>
-            <span class="toggle-desc">Donkere, rustige achtergrond tegen fel licht</span>
+        <!-- 4. Achtergrondkleur (5 opties) -->
+        <div class="profile-item profile-item-theme">
+          <div class="profile-label">
+            <span class="profile-label-title" id="theme-group-label">Achtergrondkleur</span>
+            <span class="profile-label-hint">Kies een zachte achtergrond die niet schittert</span>
           </div>
-          <div class="switch">
-            <input type="checkbox" id="toggle-dark-mode" role="switch" aria-label="Donkere modus in- of uitschakelen">
-            <span class="slider"></span>
+          <div class="theme-picker" role="radiogroup" aria-labelledby="theme-group-label">
+            
+            <label class="theme-option" for="theme-creme">
+              <input type="radio" name="profile-theme" id="theme-creme" value="creme" checked>
+              <span class="theme-swatch swatch-creme" aria-hidden="true"></span>
+              <span class="theme-text">
+                <span class="theme-name">Crème</span>
+                <span class="theme-sub">Standaard</span>
+              </span>
+            </label>
+
+            <label class="theme-option" for="theme-blauw">
+              <input type="radio" name="profile-theme" id="theme-blauw" value="blauw">
+              <span class="theme-swatch swatch-blauw" aria-hidden="true"></span>
+              <span class="theme-text">
+                <span class="theme-name">Lichtblauw</span>
+                <span class="theme-sub">Rustig</span>
+              </span>
+            </label>
+
+            <label class="theme-option" for="theme-groen">
+              <input type="radio" name="profile-theme" id="theme-groen" value="groen">
+              <span class="theme-swatch swatch-groen" aria-hidden="true"></span>
+              <span class="theme-text">
+                <span class="theme-name">Lichtgroen</span>
+                <span class="theme-sub">Zacht</span>
+              </span>
+            </label>
+
+            <label class="theme-option" for="theme-geel">
+              <input type="radio" name="profile-theme" id="theme-geel" value="geel">
+              <span class="theme-swatch swatch-geel" aria-hidden="true"></span>
+              <span class="theme-text">
+                <span class="theme-name">Lichtgeel</span>
+                <span class="theme-sub">Warm</span>
+              </span>
+            </label>
+
+            <label class="theme-option" for="theme-donker">
+              <input type="radio" name="profile-theme" id="theme-donker" value="donker">
+              <span class="theme-swatch swatch-donker" aria-hidden="true"></span>
+              <span class="theme-text">
+                <span class="theme-name">Donker</span>
+                <span class="theme-sub">Gedimd</span>
+              </span>
+            </label>
+
           </div>
-        </label>
+        </div>
       </div>
 
       <!-- Experimentele dyslexiemodus: Woorden opdelen in lettergrepen -->
@@ -100,7 +183,7 @@
         <label class="toggle-control" for="toggle-show-syllables">
           <div class="toggle-info">
             <span class="toggle-title">Lettergrepen tonen</span>
-            <span class="toggle-desc">Woorden opdelen met streepjes: Ne | der | land</span>
+            <span class="toggle-desc">Woorden als losse bouwstenen: [Ne] [der] [land]</span>
           </div>
           <div class="switch">
             <input type="checkbox" id="toggle-show-syllables" role="switch" aria-label="Lettergrepen tonen in- of uitschakelen">
