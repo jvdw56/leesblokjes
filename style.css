@@ -480,8 +480,27 @@ body {
   outline-offset: 2px;
 }
 
-#reading-options {
-  margin-top: 12px;
+.syllable-appearance {
+  margin: 4px 0 0;
+  padding: 8px 0 0;
+  border: 0;
+  font-size: 0.85rem;
+}
+
+.syllable-appearance legend {
+  font-weight: 600;
+}
+
+.syllable-appearance label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  cursor: pointer;
+}
+
+.syllable-appearance input {
+  accent-color: #2563eb;
 }
 
 .profile-item {
@@ -1627,24 +1646,9 @@ body.dark-mode .blokje-badge {
   margin-inline-end: 0;
 }
 
-.word-group[role="button"] {
-  cursor: pointer;
-  border-radius: 5px;
-}
-
-.word-group[role="button"]:focus-visible,
 .reading-profile-choice:focus-visible {
   outline: 3px solid var(--accent-amber);
   outline-offset: 3px;
-}
-
-.word-group.active-word {
-  background-color: var(--blokje-active-bg);
-  box-shadow: 0 0 0 2px var(--blokje-active-border);
-}
-
-.output-area.has-word-focus .word-group:not(.active-word) {
-  opacity: var(--blokje-dimmed-opacity);
 }
 
 .continuous-reading {

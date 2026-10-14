@@ -70,6 +70,14 @@
               reject(new Error('LeesBlokjes API is niet geladen'));
               return;
             }
+            const motion = frame.contentDocument.createElement('style');
+            motion.textContent = '*, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }';
+            frame.contentDocument.head.appendChild(motion);
+            const app = frame.contentWindow;
+            const requestFrame = app.requestAnimationFrame.bind(app);
+            app.requestAnimationFrame = callback => app.document.hidden
+              ? app.setTimeout(() => callback(app.performance.now()), 0)
+              : requestFrame(callback);
             resolve(frame.contentWindow);
           };
           if (denyStorage) frame.srcdoc = markup;
@@ -159,8 +167,7 @@
         let doc = app.document;
         const api = app.LeesBlokjes;
         const choose = mode => {
-          doc.querySelector(`[data-reading-mode="${mode === 'syllables' ? 'syllables' : 'sounds'}"]`).click();
-          doc.querySelector(`[data-reading-profile="${mode === 'normal' ? 'focus' : 'navigator'}"]`).click();
+          doc.querySelector(`[data-reading-profile="${mode === 'syllables' ? 'syllables' : 'navigator'}"]`).click();
           if (doc.getElementById('text-input').value.trim()) doc.getElementById('btn-convert').click();
         };
         const isNavigator = document =>
@@ -173,8 +180,8 @@
           !doc.querySelector('.reading-profile-section details'),
           'Alleen twee permanente profielkaarten zonder oude knoppen, legenda of inklapbediening');
         assert(JSON.stringify(Array.from(doc.querySelectorAll('[data-reading-profile]')).map(button => button.textContent.trim().replace(/\s*✓$/, ''))) ===
-          JSON.stringify(['Klanknavigator', 'Focuslezen']) &&
-          !doc.querySelector('[id^="help-"], #personal-options'),
+          JSON.stringify(['Klanknavigator', 'Lettergrepen']) &&
+          !doc.querySelector('[id^="help-"], #personal-options, #reading-options, #toggle-show-syllables, #toggle-color-syllables, [data-reading-mode], [data-reading-profile="focus"]'),
           'Leesprofielen en instellingen van de verwijderde ondersteuning bestaan niet meer');
         assert(['WebpageProcessor', 'importText', 'generateBookmarkletCode', 'displaySourceInfo',
           'hideSourceInfo', 'handleWebImport', 'handleUrlQueryParams', 'switchImportTab']
@@ -191,16 +198,18 @@
         doc.getElementById('text-input').value = 'Nog niet verwerkt';
         for (let repeat = 0; repeat < 3; repeat++) {
           for (const mode of ['sounds', 'syllables']) {
-            doc.querySelector(`[data-reading-mode="${mode}"]`).click();
-            assert(doc.querySelectorAll('[data-reading-mode][aria-pressed="true"]').length === 1 &&
-              doc.querySelector(`[data-reading-mode="${mode}"]`).getAttribute('aria-pressed') === 'true',
+            const profile = mode === 'sounds' ? 'navigator' : 'syllables';
+            doc.querySelector(`[data-reading-profile="${profile}"]`).click();
+            assert(doc.querySelectorAll('[data-reading-profile][aria-checked="true"]').length === 1 &&
+              doc.querySelector(`[data-reading-profile="${profile}"]`).getAttribute('aria-checked') === 'true',
               `Leesmodusknoppen selecteren exact een optie: ${mode}/${repeat}`);
             assert(content().querySelector(mode === 'sounds' ? '.sound' : '.syl') &&
               !content().querySelector(mode === 'sounds' ? '.syl' : '.sound') &&
               JSON.stringify(Array.from(doc.querySelectorAll('.reading-unit')).map(unit => unit.dataset.originalText)) === JSON.stringify(processed) &&
               doc.getElementById('text-input').value === 'Nog niet verwerkt',
               `Modusklik rendert direct, behoudt uitvoer en overschrijft geen invoer: ${mode}/${repeat}`);
-            assert(JSON.parse(localStorage.getItem(keys[0])).readingMode === mode,
+            assert(JSON.parse(localStorage.getItem(keys[0])).readingProfile === profile &&
+              doc.getElementById('syllable-appearance').hidden === (profile === 'navigator'),
               `Modusknop gebruikt bestaande profielopslag: ${mode}/${repeat}`);
           }
         }
@@ -327,8 +336,6 @@
           ['ruimteschip', ['r', 'ui', 'm', 't', 'e', 'sch', 'i', 'p'],
             ['blue', 'orange', 'blue', 'blue', 'green', 'blue', 'green', 'blue']]
         ];
-        doc.getElementById('toggle-show-syllables').click();
-        doc.getElementById('toggle-color-syllables').click();
         for (const [word, expected, colors] of requiredExamples) {
           doc.getElementById('text-input').value = word;
           choose('syllables');
@@ -396,14 +403,14 @@
             doc.getElementById('upload-success').style.display === 'flex',
             `Bestandskeuze/drop-event voert echte documentimport uit: ${method}`);
         }
-        for (const mode of ['syllables', 'normal']) {
+        for (const mode of ['syllables', 'sounds']) {
           choose(mode);
           for (const file of [createDocx(app, uploadText), createPdf(app, uploadText)]) {
             await api.handleFileUpload(file);
             assert(content().textContent === uploadText &&
               (mode === 'syllables' ? content().querySelector('.syl') :
-                content().querySelector('.word-group[role="button"]') && !content().querySelector('.syl, .sound')),
-              `Echte ${file.name}-upload respecteert lettergreepblokken of Focuslezen: ${mode}`);
+                content().querySelector('.sound') && !content().querySelector('.syl')),
+              `Echte ${file.name}-upload respecteert het leesprofiel: ${mode}`);
           }
         }
         const beforeRejectedUpload = content().textContent;
@@ -440,8 +447,8 @@
         assert(content().querySelector('img') === null, 'HTML uit invoer wordt niet uitgevoerd');
         assert(!doc.body.classList.contains('show-syllables') && !doc.body.classList.contains('color-syllables'),
           'Klankmodus is onafhankelijk van lettergreepkleuren');
-        assert(!doc.getElementById('reading-options').hidden && !doc.querySelector('#sound-mode-info'),
-          'Lettergreepinstellingen blijven zichtbaar onder Overige instellingen');
+        assert(doc.getElementById('syllable-appearance').hidden && !doc.querySelector('#reading-options'),
+          'Alleen Lettergrepen heeft weergaveopties; Overige instellingen bestaat niet meer');
         assert(content().querySelectorAll('.sound-underline').length === 4,
           'Alle aai/ooi/oei-groepen hebben onderstreping');
         assert(content().querySelectorAll('.sound-dots').length === 6,
@@ -472,19 +479,14 @@
           'Klankkleuren blijven gelijk in donker thema');
         choose('syllables');
         assert(content().innerHTML === syllableHtml, 'Terugwisselen herstelt exact de bestaande lettergreepopmaak');
-        doc.getElementById('toggle-show-syllables').click();
-        doc.getElementById('toggle-color-syllables').click();
-        const showBefore = doc.getElementById('toggle-show-syllables').checked;
-        const colorBefore = doc.getElementById('toggle-color-syllables').checked;
+        doc.querySelector('[name="syllable-style"][value="outlined"]').click();
         choose('sounds');
-        assert(content().querySelector('.sound') !== null, 'Klankmodus werkt met lettergreeptonen uitgeschakeld');
-        doc.querySelector('[data-reading-profile="focus"]').click();
-        doc.querySelector('[data-reading-profile="navigator"]').click();
-        assert(doc.getElementById('toggle-show-syllables').checked === showBefore &&
-          doc.getElementById('toggle-color-syllables').checked === colorBefore,
-          'Lettergreepvoorkeuren blijven bewaard tijdens wisselen');
+        assert(content().querySelector('.sound') !== null, 'Klanknavigator is onafhankelijk van de lettergreepweergave');
+        choose('syllables');
+        assert(doc.querySelector('[name="syllable-style"][value="outlined"]').checked &&
+          !doc.body.classList.contains('color-syllables'), 'Omrand blijft bewaard tijdens profielwisselen');
         choose('sounds');
-        assert(JSON.parse(localStorage.getItem(keys[0])).readingMode === 'sounds', 'Keuze wordt opgeslagen in localStorage');
+        assert(JSON.parse(localStorage.getItem(keys[0])).readingProfile === 'navigator', 'Keuze wordt opgeslagen in localStorage');
         app = await loadApp();
         doc = app.document;
         assert(isNavigator(doc) &&
@@ -497,15 +499,14 @@
         localStorage.setItem(keys[0], JSON.stringify({ showSyllables: false, colorSyllables: false, theme: 'groen' }));
         app = await loadApp();
         assert(isNavigator(app.document) &&
-          !app.document.getElementById('toggle-show-syllables').checked,
+          app.document.querySelector('[name="syllable-style"][value="outlined"]').checked,
           'Oude profielen zonder leesmodus behouden lettergreepinstellingen');
         localStorage.removeItem(keys[0]);
         localStorage.setItem(keys[1], JSON.stringify({ showSyllables: false, colorSyllables: false }));
         app = await loadApp();
         assert(isNavigator(app.document) &&
           JSON.parse(localStorage.getItem(keys[0])).readingProfile === 'navigator' &&
-          !app.document.getElementById('toggle-show-syllables').checked &&
-          !app.document.getElementById('toggle-color-syllables').checked,
+          JSON.parse(localStorage.getItem(keys[0])).syllableStyle === 'outlined',
           'Migratie van oude instellingen bewaart lettergreepvoorkeuren binnen Klanknavigator');
         for (const source of ['doc', 'text']) {
           app.document.getElementById(`tab-btn-${source}`).click();
@@ -575,12 +576,9 @@
           'Alineablokken blijft de standaardweergave');
         for (const layout of ['blocks', 'continuous']) {
           chooseLayout(layout);
-          for (const mode of ['normal', 'syllables', 'sounds']) {
+          for (const mode of ['syllables', 'sounds']) {
             doc.getElementById('text-input').value = mode === 'sounds' ? 'school school' : 'Nederland Nederland';
             choose(mode);
-            const toggle = doc.getElementById('toggle-show-syllables');
-            toggle.checked = mode === 'syllables';
-            toggle.dispatchEvent(new app.Event('change'));
             setSpacing('0.8');
             const output = content();
             const firstWord = output.querySelector('.word-group');
@@ -739,18 +737,14 @@
           assert(!speaking && doc.getElementById('btn-stop-audio').style.display === 'none' &&
             !doc.querySelector('.btn-speak-block.speaking'),
             'Een individuele spraakfout herstelt eveneens de luisterknoppen');
-          doc.querySelector('[data-reading-profile="focus"]').click();
+          doc.querySelector('[data-reading-profile="syllables"]').click();
           chooseLayout('continuous');
           doc.getElementById('btn-read-all').click();
-          const focusUtterance = spoken[spoken.length - 1];
-          focusUtterance.onboundary({ name: 'word', charIndex: flowingText.indexOf('schrijfboek') });
-          assert(doc.querySelector('.active-word').textContent === 'schrijfboek' &&
-            doc.querySelectorAll('.active-word').length === 1,
-            'Voorleeshulp volgt de woordpositie in Focuslezen');
+          const previousUtterance = spoken[spoken.length - 1];
+          assert(previousUtterance.text === flowingText, 'Lettergrepen leest originele tekst zonder scheidingen voor');
           doc.querySelector('[data-reading-profile="navigator"]').click();
-          focusUtterance.onboundary({ name: 'word', charIndex: 0 });
-          assert(!doc.querySelector('.active-word') && !speaking,
-            'Profielwissel stopt audio en negeert oude woordpositie-events');
+          previousUtterance.onend();
+          assert(!speaking, 'Profielwissel stopt audio en negeert oude spraakcallbacks');
         } finally {
           speechKeys.forEach((key, index) => {
             if (speechDescriptors[index]) Object.defineProperty(speech, key, speechDescriptors[index]);
@@ -825,12 +819,9 @@
           await new Promise(resolve => app.requestAnimationFrame(resolve));
           for (const layout of ['blocks', 'continuous']) {
             chooseLayout(layout);
-            for (const mode of ['normal', 'syllables', 'sounds']) {
+            for (const mode of ['syllables', 'sounds']) {
               doc.getElementById('text-input').value = 'aa aa\n\nschool schrijfboek nieuws leeuw vriendelijk ruimteschip.';
               choose(mode);
-              const toggle = doc.getElementById('toggle-show-syllables');
-              toggle.checked = mode === 'syllables';
-              toggle.dispatchEvent(new app.Event('change'));
               const output = doc.getElementById('output-area');
               const words = Array.from(output.querySelectorAll('.word-group'));
               const gap = () => words[1].getBoundingClientRect().left - words[0].getBoundingClientRect().right;
@@ -884,11 +875,11 @@
         assert(JSON.stringify(Array.from(doc.querySelectorAll('.theme-name')).map(item => item.textContent)) ===
           JSON.stringify(['Crème', 'Warmblauw', 'Warmgroen', 'Donker']),
           'Alleen de vier gevraagde warme achtergrondthemas zijn beschikbaar');
-        for (const profile of ['navigator', 'focus']) {
+        for (const profile of ['navigator', 'syllables']) {
           selectProfile(profile);
           assert(doc.querySelectorAll('[data-reading-profile][aria-checked="true"]').length === 1 &&
             JSON.parse(localStorage.getItem(keys[0])).readingProfile === profile &&
-            !doc.getElementById('reading-options').hidden,
+            doc.getElementById('syllable-appearance').hidden === (profile === 'navigator'),
             `Exclusieve profielkeuze, ondersteuning en opslag: ${profile}`);
           assert(outputText() === profileText && doc.getElementById('text-input').value === 'Nog niet verwerkte tekst',
             `Profielwissel behoudt verwerkte uitvoer en onverwerkte invoer: ${profile}`);
@@ -897,7 +888,7 @@
           frame.style.width = `${width}px`;
           frame.style.height = `${height}px`;
           await new Promise(resolve => app.requestAnimationFrame(resolve));
-          for (const profile of ['navigator', 'focus']) {
+          for (const profile of ['navigator', 'syllables']) {
             selectProfile(profile);
             const cards = Array.from(doc.querySelectorAll('.reading-profile-choice')).map(card => card.getBoundingClientRect());
             assert(cards.length === 2 && cards[0].top === cards[1].top && cards[1].left > cards[0].left &&
@@ -910,36 +901,44 @@
         }
         for (const layout of ['blocks', 'continuous']) {
           chooseLayout(layout);
-          selectProfile('focus');
-          assert(!doc.querySelector('.blokje-content .sound, .blokje-content .syl'),
-            `Focuslezen gebruikt rustige ongewijzigde woordtekst: ${layout}`);
-          let words = doc.querySelectorAll('.word-group');
-          words[0].click();
-          assert(words[0].classList.contains('active-word') && words[0].getAttribute('aria-pressed') === 'true' &&
-            app.getComputedStyle(words[words.length - 1]).opacity !== '1',
-            `Actief woord benadrukt en alle overige tekst blijft zichtbaar maar gedimd: ${layout}`);
-          words[1].dispatchEvent(new app.KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
-          assert(doc.querySelectorAll('.active-word').length === 1 && words[1].classList.contains('active-word'),
-            `Woordpositie wisselt exclusief via toetsenbord: ${layout}`);
-          words[1].dispatchEvent(new app.KeyboardEvent('keydown', { key: ' ', bubbles: true }));
-          assert(!doc.querySelector('.active-word') && app.getComputedStyle(words[0]).opacity === '1',
-            `Woordfocus kan via spatie uitgeschakeld worden: ${layout}`);
-          for (let repeat = 0; repeat < 3; repeat++) selectProfile('focus');
-          doc.querySelector('.word-group').click();
-          assert(doc.querySelectorAll('.active-word').length === 1,
-            `Herhaald wisselen voegt geen dubbele woordfocuslisteners toe: ${layout}`);
+          selectProfile('syllables');
+          const original = content().textContent;
+          for (const style of ['colored', 'outlined']) {
+            doc.querySelector(`[name="syllable-style"][value="${style}"]`).click();
+            const parts = Array.from(doc.querySelectorAll('.syl'));
+            assert(parts.length > 1 && content().textContent === original &&
+              !doc.querySelector('.sound') && !doc.getElementById('syllable-appearance').hidden &&
+              doc.querySelectorAll('[name="syllable-style"]:checked').length === 1 &&
+              doc.body.classList.contains('color-syllables') === (style === 'colored'),
+              `Weergavekeuze behoudt alle lettergreepblokken en tekst: ${style}/${layout}`);
+            const backgrounds = new Set(parts.map(part => app.getComputedStyle(part).backgroundColor));
+            assert(style === 'colored' ? backgrounds.size > 1 : backgrounds.size === 1 &&
+              parts.every(part => parseFloat(app.getComputedStyle(part).borderWidth) > 0),
+              `Gekleurd heeft pastelkleuren; Omrand heeft neutrale randen: ${style}/${layout}`);
+          }
+          for (let repeat = 0; repeat < 3; repeat++) {
+            selectProfile('navigator');
+            selectProfile('syllables');
+          }
+          assert(doc.querySelectorAll('.reading-unit').length === (layout === 'blocks' ? 2 : 1) &&
+            content().textContent === original, `Herhaald kiezen bouwt geen dubbele uitvoer: ${layout}`);
         }
-        for (const profile of ['navigator', 'focus']) {
+        for (const profile of ['navigator', 'syllables']) {
+          for (const style of ['colored', 'outlined']) {
           selectProfile(profile);
+          doc.querySelector(`[name="syllable-style"][value="${style}"]`).click();
           localStorage.setItem(keys[4], 'true');
           app = await loadApp();
           doc = app.document;
           assert(doc.querySelector(`[data-reading-profile="${profile}"]`).getAttribute('aria-checked') === 'true' &&
             app.getComputedStyle(doc.querySelector('.sidebar-column')).display !== 'none' &&
-            !doc.querySelector('#btn-toggle-sidebar'),
-            `Profielherstel na verversen en oude ingeklapte status genegeerd: ${profile}`);
+            !doc.querySelector('#btn-toggle-sidebar') &&
+            doc.querySelector(`[name="syllable-style"][value="${style}"]`).checked &&
+            doc.getElementById('syllable-appearance').hidden === (profile === 'navigator'),
+            `Profiel en weergave hersteld na verversen: ${profile}/${style}`);
+          }
         }
-        for (const profile of ['personal', 'sounds']) {
+        for (const profile of ['personal', 'sounds', 'navigator', 'focus']) {
           for (const show of [true, false]) {
             localStorage.setItem(keys[0], JSON.stringify({ readingProfile: profile,
               font: 'Verdana', fontSize: 24, lineHeight: 2.1, wordSpacing: 1.8,
@@ -948,46 +947,41 @@
             app = await loadApp();
             doc = app.document;
             const migrated = JSON.parse(localStorage.getItem(keys[0]));
-            assert(migrated.readingProfile === 'navigator' && !Object.hasOwn(migrated, 'help') &&
+            const expectedProfile = ['personal', 'navigator'].includes(profile) && show ? 'syllables' : 'navigator';
+            assert(migrated.readingProfile === expectedProfile && !Object.hasOwn(migrated, 'help') &&
               migrated.font === 'Verdana' && migrated.fontSize === 24 && migrated.lineHeight === 2.1 &&
               migrated.wordSpacing === 1.8 && migrated.theme === 'donker' && migrated.readingLayout === 'continuous' &&
-              migrated.colorSyllables === false && migrated.showSyllables === (profile === 'personal' && show),
-              `Verwijderd profiel migreert naar Klanknavigator met behoud van kerninstellingen: ${profile}/${show}`);
+              migrated.syllableStyle === 'outlined' &&
+              !['readingMode', 'showSyllables', 'colorSyllables'].some(key => Object.hasOwn(migrated, key)),
+              `Oud profiel migreert zonder overlappende status met behoud van kerninstellingen: ${profile}/${show}`);
             app.LeesBlokjes.renderBlocks(['Nederland, school.']);
-            assert(doc.querySelector(profile === 'personal' && show ? '.syl' : '.sound') &&
+            assert(doc.querySelector(expectedProfile === 'syllables' ? '.syl' : '.sound') &&
               !doc.getElementById('btn-read-all').hidden && outputText() === 'Nederland, school.',
               'Migratie behoudt de bouwsteenweergave en herstelt altijd de voorleesfunctionaliteit');
           }
         }
-        selectProfile('navigator');
-        const syllables = doc.getElementById('toggle-show-syllables');
-        syllables.checked = true;
-        syllables.dispatchEvent(new app.Event('change'));
-        const colors = doc.getElementById('toggle-color-syllables');
-        colors.checked = true;
-        colors.dispatchEvent(new app.Event('change'));
+        selectProfile('syllables');
+        doc.querySelector('[name="syllable-style"][value="colored"]').click();
         const coloredSyllables = Array.from(doc.querySelectorAll('.syl')).map(syllable =>
           [syllable.textContent, app.getComputedStyle(syllable).backgroundColor]);
         assert(coloredSyllables.length > 1 && doc.body.classList.contains('color-syllables'),
-          'Lettergreepblokken en hun bestaande kleuren werken binnen Klanknavigator');
-        selectProfile('focus');
-        assert(!doc.querySelector('.syl, .sound') && syllables.checked && colors.checked,
-          'Focuslezen blijft gewone tekst en behoudt beide lettergreepvoorkeuren');
+          'Lettergreepblokken behouden hun bestaande pastelkleuren');
         selectProfile('navigator');
+        assert(!doc.querySelector('.syl') && doc.querySelector('.sound') &&
+          doc.getElementById('syllable-appearance').hidden, 'Klanknavigator verbergt de lettergreepweergave');
+        selectProfile('syllables');
         assert(JSON.stringify(Array.from(doc.querySelectorAll('.syl')).map(syllable =>
           [syllable.textContent, app.getComputedStyle(syllable).backgroundColor])) === JSON.stringify(coloredSyllables),
-          'Terugwisselen vanuit Focuslezen herstelt exact dezelfde gekleurde lettergreepblokken');
-        colors.click();
+          'Terugwisselen herstelt exact dezelfde gekleurde lettergreepblokken');
+        doc.querySelector('[name="syllable-style"][value="outlined"]').click();
         assert(doc.querySelector('.syl') && !doc.body.classList.contains('color-syllables'),
           'Lettergreepkleuren kunnen worden uitgeschakeld zonder bouwstenen of tekst te verliezen');
         app = await loadApp();
         doc = app.document;
-        assert(doc.getElementById('toggle-show-syllables').checked &&
-          !doc.getElementById('toggle-color-syllables').checked && isNavigator(doc),
-          'Beide onafhankelijke lettergreepschakelaars worden hersteld na herladen');
-        assert(doc.querySelector('[data-reading-mode="syllables"]').getAttribute('aria-pressed') === 'true' &&
-          doc.querySelector('[data-reading-mode="sounds"]').getAttribute('aria-pressed') === 'false',
-          'Segmented control herstelt de opgeslagen lettergreepvoorkeur na herladen');
+        assert(doc.body.dataset.activeProfile === 'syllables' &&
+          doc.querySelector('[name="syllable-style"][value="outlined"]').checked &&
+          !doc.getElementById('syllable-appearance').hidden,
+          'Lettergrepen en Omrand worden gezamenlijk hersteld na herladen');
         for (const [oldMode, oldTheme, expectedProfile, expectedTheme] of [
           ['syllables', 'geel', 'navigator', 'creme'],
           ['sounds', 'blauw', 'navigator', 'blauw'],
@@ -1001,7 +995,7 @@
           const migrated = JSON.parse(localStorage.getItem(keys[0]));
           assert(migrated.readingProfile === expectedProfile && migrated.theme === expectedTheme &&
             migrated.font === 'Verdana' && migrated.fontSize === 24 && migrated.wordSpacing === 1.8 &&
-            migrated.readingLayout === 'continuous' && migrated.showSyllables === false,
+            migrated.readingLayout === 'continuous' && migrated.syllableStyle === 'outlined',
             `Migratie van ${oldMode}/${oldTheme} behoudt overige instellingen`);
           app.LeesBlokjes.renderBlocks(['school nieuws']);
           assert(doc.querySelector('.blokje-content .sound') &&
@@ -1025,7 +1019,7 @@
           const state = JSON.parse(localStorage.getItem(keys[0]));
           assert(state.readingProfile === 'navigator' && state.theme === 'creme' &&
             state.readingLayout === 'blocks' && state.font === 'Lexend' && state.fontSize === 20 &&
-            state.lineHeight === 1.8 && state.wordSpacing === 1 && state.showSyllables === false &&
+            state.lineHeight === 1.8 && state.wordSpacing === 1 && state.syllableStyle === 'colored' &&
             !Object.hasOwn(state, 'help') && doc.getElementById('profile-font').value === 'Lexend',
             `Ongeldige opslag herstelt veilige, consistente standaardinstellingen: ${value}`);
           doc.getElementById('text-input').value = 'school nieuws';
@@ -1066,7 +1060,7 @@
         const processedText = input.value;
         assert(doc.querySelectorAll('.reading-unit').length === 3 && outputText() === processedText,
           'Opnieuw verwerken vervangt daadwerkelijk de oude uitvoer');
-        for (const profile of ['navigator', 'focus']) {
+        for (const profile of ['navigator', 'syllables']) {
           selectProfile(profile);
           for (const layout of ['blocks', 'continuous']) {
             chooseLayout(layout);
@@ -1082,8 +1076,8 @@
           doc.getElementById('reading-profile-description').textContent === 'Kies jouw leeshulp.',
           'Compacte profielkaarten gebruiken een toegankelijke radiogroep met een tabstop');
         let selected = doc.querySelector('[data-reading-profile][aria-checked="true"]');
-        for (const [key, expected] of [['ArrowRight', 'navigator'], ['ArrowDown', 'focus'],
-          ['End', 'focus'], ['ArrowLeft', 'navigator'], ['Home', 'navigator'], ['ArrowUp', 'focus']]) {
+        for (const [key, expected] of [['ArrowRight', 'navigator'], ['ArrowDown', 'syllables'],
+          ['End', 'syllables'], ['ArrowLeft', 'navigator'], ['Home', 'navigator'], ['ArrowUp', 'syllables']]) {
           selected.dispatchEvent(new app.KeyboardEvent('keydown', { key, bubbles: true }));
           selected = doc.querySelector('[data-reading-profile][aria-checked="true"]');
           assert(selected.dataset.readingProfile === expected && doc.activeElement === selected &&
@@ -1114,20 +1108,14 @@
           doc.getElementById(`theme-${theme}`).click();
           assert(doc.body.dataset.theme === theme && JSON.parse(localStorage.getItem(keys[0])).theme === theme,
             `Achtergrond verandert direct en wordt opgeslagen: ${theme}`);
-          selectProfile('focus');
+          selectProfile('syllables');
+          doc.querySelector('[name="syllable-style"][value="outlined"]').click();
           await new Promise(resolve => app.requestAnimationFrame(resolve));
           await Promise.all(doc.getAnimations().filter(animation =>
             animation.effect.getTiming().iterations !== Infinity).map(animation => animation.finished));
-          doc.querySelector('.word-group').click();
-          const words = doc.querySelectorAll('.word-group');
-          const faded = words[1];
-          const background = backgroundOf(app, faded);
-          const fadedStyle = app.getComputedStyle(faded);
-          const effective = rgb(fadedStyle.color).slice(0, 3).map((channel, index) =>
-            channel * Number(fadedStyle.opacity) + background[index] * (1 - Number(fadedStyle.opacity)));
-          assert(contrast(effective, background) >= 4.5 &&
-            contrast(rgb(app.getComputedStyle(words[0]).color), backgroundOf(app, words[0])) >= 4.5,
-            `Actieve en gedimde focustekst blijft leesbaar met contrast >= 4.5: ${theme}`);
+          assert(Array.from(doc.querySelectorAll('.syl')).every(part =>
+            contrast(rgb(app.getComputedStyle(part).color), backgroundOf(app, part)) >= 4.5),
+            `Omrande lettergreepblokken houden leesbaar contrast >= 4.5: ${theme}`);
           selectProfile('navigator');
           await new Promise(resolve => app.requestAnimationFrame(resolve));
           await Promise.all(doc.getAnimations().filter(animation =>
@@ -1180,9 +1168,9 @@
         doc = app.document;
         doc.getElementById('text-input').value = 'school nieuws\n\nNederland!';
         doc.getElementById('btn-convert').click();
-        selectProfile('focus');
+        selectProfile('syllables');
         chooseLayout('continuous');
-        assert(app.testErrors.length === 0 && doc.body.dataset.activeProfile === 'focus' &&
+        assert(app.testErrors.length === 0 && doc.body.dataset.activeProfile === 'syllables' &&
           doc.querySelectorAll('.reading-unit').length === 1 && outputText() === 'school nieuws\n\nNederland!',
           'Geblokkeerde localStorage veroorzaakt geen startupfout en blokkeert verwerking of instellingen niet');
         frame.style.width = '100%';

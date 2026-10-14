@@ -15,7 +15,7 @@ Mammoth- en PDF.js-bibliotheken. Tekst kan ook direct worden getypt of geplakt.
 
 Het instellingenpaneel blijft beschikbaar en is niet inklapbaar. De volgorde is
 Leesprofiel, Lettertype, Lettergrootte, Regelafstand, Woordafstand,
-Achtergrondkleur, Tekstweergave en Overige instellingen.
+Achtergrondkleur en Tekstweergave.
 Leesprofiel toont permanent twee kaarten naast elkaar; precies een kaart is
 actief. De keuze wordt bij verversen hersteld. De compacte kaarten tonen alleen
 de profielnaam; de beschrijving blijft beschikbaar voor schermlezers.
@@ -24,27 +24,21 @@ Home en End verplaatsen selectie en focus; Tab verlaat de radiogroep.
 
 - **Klanknavigator** (standaard): kleuren helpen klanken herkennen. Gebruikt
   exact de bestaande klankgroepen, kleuren en markeringen van LeesBlokjes™.
-- **Focuslezen**: rustige tekst met aanklikbare woorden. Het actieve woord krijgt
-  nadruk; de overige tekst blijft zichtbaar maar minder prominent. Enter of
-  spatie activeert/uitschakelt de woordpositie. Het bestaande leeslampje per
-  alineablok blijft beschikbaar.
+- **Lettergrepen**: verdeelt woorden in geschreven Nederlandse lettergrepen,
+  bijvoorbeeld `[Ne] [der] [land]`. Ook eenlettergrepige woorden krijgen een leesblok.
 
-**Lettergrepen/Klanken** en **Lettergrepen kleuren** staan permanent onder
-Overige instellingen. De moduskeuze is een wederzijds exclusieve segmented control,
-net als Alineablokken/Doorlopende tekst. Binnen Klanknavigator vervangt Lettergrepen de
-klankbouwstenen door de bestaande geschreven Nederlandse lettergreepblokken.
-De kleurschakelaar behoudt de bestaande pastelkleuren. Focuslezen houdt zijn
-rustige tekstweergave; beide voorkeuren blijven bewaard bij profielwisselingen
-en worden direct weer toegepast bij terugkeer naar Klanknavigator.
+Alleen bij Lettergrepen staat onder de profielknoppen **Weergave** met twee
+radio-opties: **Gekleurd** (de bestaande pastelkleuren) en **Omrand** (neutrale
+blokken met een rand, zonder lettergreepkleuren). De keuze blijft bewaard bij
+profielwisselingen en herladen. Er zijn geen losse modus- of kleurschakelaars
+meer. Het bestaande leeslampje per alineablok blijft beschikbaar.
 
 Profielwisselingen maken bestaande uitvoer opnieuw op via `renderBlocks`, zonder
 tekst opnieuw te importeren of nog niet verwerkte wijzigingen in het invoervak
 over de uitvoer te schrijven. Een profielkeuze kan ook aanwezige invoer verwerken
-als nog geen uitvoer bestaat. Woordfocus volgt bij voorlezen de woordgrenzen als
-de browser/stem deze doorgeeft; anders blijft het actieve leesdeel gemarkeerd.
+als nog geen uitvoer bestaat. Bij voorlezen blijft het actieve leesdeel gemarkeerd.
 Profiel- en weergavewisselingen stoppen lopende audio en negeren oude callbacks.
 Een spraakfout geeft een Nederlandse melding en herstelt de voorleesbediening.
-Gedimde focustekst blijft leesbaar, ook in het donkere thema.
 
 ### Afstand en tekstweergave
 
@@ -124,8 +118,8 @@ e/ig/lijk op de kaart zijn niet toegevoegd aan de expliciet gevraagde classifica
 ### Opgeslagen voorkeuren
 
 - `leesblokjes_leesprofiel`: onder meer `wordSpacing`, `readingLayout`,
-  `readingProfile` (`navigator`, `focus`),
-  de interne `readingMode`, lettergreepvoorkeuren, lettertype, grootte,
+  `readingProfile` (`navigator`, `syllables`),
+  `syllableStyle` (`colored`, `outlined`), lettertype, grootte,
   regelafstand en thema. Er zijn geen nieuwe localStorage-sleutels.
 - `leesblokjes_instellingen`: migratie van het oude instellingenformaat.
 - `leesblokjes_actieve_import_sectie` en `leesblokjes_laatste_geopende_sectie`:
@@ -133,8 +127,11 @@ e/ig/lijk op de kaart zijn niet toegevoegd aan de expliciet gevraagde classifica
 - `leesblokjes_paneel_ingeklapt`: oude sleutel; wordt niet meer gelezen of
   gewijzigd, omdat de profielen niet verborgen mogen worden.
 
-Oude verwijderde profielen worden Klanknavigator. Bestaande lettergreepinstellingen
-blijven behouden; een oude volledige klankweergave blijft volledige klankweergave.
+Oud Focuslezen en oude klankprofielen worden Klanknavigator. Een oude actieve
+lettergreepkeuze binnen Klanknavigator of het oude persoonlijke profiel wordt
+Lettergrepen. Uitgeschakelde lettergreepkleuren worden Omrand, anders Gekleurd.
+`readingMode`, `showSyllables` en `colorSyllables` worden uitsluitend voor migratie
+gelezen en niet opnieuw opgeslagen. Een oude klankweergave blijft Klanknavigator.
 Verwijderde ondersteuningsschakelaars worden niet meer opgeslagen of toegepast.
 Een oude gele achtergrond wordt Crème; `blauw` en `groen` behouden hun sleutels en krijgen de
 warme tinten. De migratie wordt in het bestaande leesprofiel opgeslagen en
@@ -142,7 +139,7 @@ behoudt de andere voorkeuren. Zonder opgeslagen profiel start Klanknavigator.
 Verwijderde bronkeuzes worden teruggezet naar Tekst plakken en opnieuw opgeslagen.
 Ongeldige profiel-, thema- en weergavewaarden krijgen veilige standaardwaarden.
 Lettertypen worden tegen de bestaande lijst gecontroleerd, getallen op
-eindigheid en bereik en schakelaars op hun booleaanse type. Corrupte opslag
+eindigheid en bereik en profiel/weergave op de toegestane waarden. Corrupte opslag
 wordt gemeld; geblokkeerde localStorage verhindert niet dat de app start of
 tekst verwerkt, maar voorkeuren kunnen dan niet worden bewaard.
 
@@ -162,7 +159,7 @@ Mammoth- en PDF.js-extractie en uploadhandler verwerkt.
 Clipboard en spraak worden gecontroleerd met testdubbels;
 dit verifieert tekst en aansturing, niet het daadwerkelijk hoorbare geluid.
 
-Aanvullende tests bedienen de Lettergrepen/Klanken-knoppen herhaaldelijk zonder
+Aanvullende tests bedienen de twee profielknoppen herhaaldelijk zonder
 conversieklik en controleren directe DOM-wijzigingen, exclusieve selectie,
 tekstbehoud, ongewijzigde nog niet verwerkte invoer en herstel na herladen.
 
@@ -171,20 +168,20 @@ van deze reparatie. De bestaande tests bewaken die eerdere verwijdering; deze
 functies worden niet opnieuw toegevoegd als onderdeel van de gerichte reparatie.
 
 Voor 1920x1080, 1366x768 en 390x844 worden alle vijf woordafstandstanden gemeten
-in normale tekst, lettergrepen en klanken, zowel in blokken als doorlopende tekst.
+in lettergrepen en klanken, zowel in blokken als doorlopende tekst.
 De suite controleert ook ongewijzigde woordbreedtes, exclusieve DOM-structuren,
 tekstbehoud, kleuren en het ontbreken van horizontale pagina-overflow.
 
 Aanvullende profieltests controleren de permanente compacte profielrij op alle drie
-schermformaten, profielherstel, migraties, lettergreepschakelaars, woordfocus via
-muis/toetsenbord, de woordpositie bij voorlezen en het negeren van oude
+schermformaten, profielherstel, migraties, de conditionele weergavekeuze,
+neutrale randen, beide opgeslagen weergaven en het negeren van oude
 spraakcallbacks. De volledige invoerroute test typen/plakken, voorbeeldtekst,
 wissen, woordentelling, opnieuw verwerken en direct wisselen zonder extra
 verwerkklik. Aanvullend worden gelijke kaartmaten op 320px, de eenkolomsfallback
 onder 300px, toetsenbordselectie, corrupte/geblokkeerde opslag, document- en
 spraakfouten en tekstcontrast van minimaal 4.5:1 gecontroleerd. Documenttests
 controleren ook de bestandskeuze- en drop-events met echte DOCX/PDF-bestanden.
-Beide documentformaten worden eveneens met lettergreepblokken en Focuslezen
+Beide documentformaten worden eveneens in beide leesprofielen
 getest, inclusief behoud van de melding bij documenten zonder uitleesbare tekst.
 Regressietests controleren tevens dat externe import-API's ontbreken en
 queryparameters, hashparameters en externe berichten geen tekst importeren.

@@ -64,15 +64,20 @@
               <h3 id="reading-profile-title" class="profile-label-title">Leesprofiel</h3>
               <p id="reading-profile-description" class="reading-profile-description">Kies jouw leeshulp.</p>
               <div class="reading-profile-picker" role="radiogroup" aria-labelledby="reading-profile-title" aria-describedby="reading-profile-description">
-                <button type="button" role="radio" class="reading-profile-choice" data-reading-profile="navigator" aria-checked="true" tabindex="0" aria-description="Kleuren helpen klanken herkennen.">
+                <button type="button" role="radio" class="reading-profile-choice" data-reading-profile="navigator" aria-checked="true" tabindex="0" aria-description="Letters en klanken leren.">
                   <span class="profile-choice-title">Klanknavigator</span>
                   <span class="profile-choice-indicator" aria-hidden="true">✓</span>
                 </button>
-                <button type="button" role="radio" class="reading-profile-choice" data-reading-profile="focus" aria-checked="false" tabindex="-1" aria-description="Leg nadruk op het actieve leesdeel.">
-                  <span class="profile-choice-title">Focuslezen</span>
+                <button type="button" role="radio" class="reading-profile-choice" data-reading-profile="syllables" aria-checked="false" tabindex="-1" aria-description="Woorden opdelen en makkelijker lezen.">
+                  <span class="profile-choice-title">Lettergrepen</span>
                   <span class="profile-choice-indicator" aria-hidden="true">✓</span>
                 </button>
               </div>
+              <fieldset id="syllable-appearance" class="syllable-appearance" hidden>
+                <legend>Weergave</legend>
+                <label><input type="radio" name="syllable-style" value="colored" checked> Gekleurd</label>
+                <label><input type="radio" name="syllable-style" value="outlined"> Omrand</label>
+              </fieldset>
             </section>
             <!-- 1. Lettertype -->
             <div class="profile-item profile-item-font">
@@ -218,28 +223,6 @@
             </section>
           </div>
 
-          <section id="reading-options" aria-labelledby="reading-options-title">
-            <h3 id="reading-options-title" class="profile-label-title">Overige instellingen</h3>
-          <div id="syllable-options" class="toggles-grid">
-            <div class="reading-mode-picker" role="group" aria-label="Leesmodus">
-              <button type="button" class="reading-mode-button" data-reading-mode="syllables" aria-pressed="false">Lettergrepen</button>
-              <button type="button" class="reading-mode-button" data-reading-mode="sounds" aria-pressed="true">Klanken</button>
-            </div>
-            <input type="checkbox" id="toggle-show-syllables" hidden aria-label="Lettergrepen tonen">
-
-            <!-- Optie 6: Lettergrepen kleuren -->
-            <label class="toggle-control" for="toggle-color-syllables">
-              <div class="toggle-info">
-                <span class="toggle-title">Lettergrepen kleuren</span>
-                <span class="toggle-desc">Rustige pastelkleuren (blauw, groen, geel, paars)</span>
-              </div>
-              <div class="switch">
-                <input type="checkbox" id="toggle-color-syllables" role="switch" aria-label="Lettergrepen kleuren in- of uitschakelen">
-                <span class="slider"></span>
-              </div>
-            </label>
-          </div>
-          </section>
         </section>
       </aside>
 

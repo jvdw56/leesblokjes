@@ -30,13 +30,12 @@ document.addEventListener('DOMContentLoaded', () => {
   const btnResetProfile = document.getElementById('btn-reset-profile');
 
   // Leesweergave
-  const toggleShowSyllables = document.getElementById('toggle-show-syllables');
-  const toggleColorSyllables = document.getElementById('toggle-color-syllables');
+  const syllableAppearance = document.getElementById('syllable-appearance');
+  const syllableStyleRadios = document.querySelectorAll('input[name="syllable-style"]');
   const readingProfileButtons = document.querySelectorAll('[data-reading-profile]');
-  const readingModeButtons = document.querySelectorAll('[data-reading-mode]');
   const readingLayoutButtons = document.querySelectorAll('[data-reading-layout]');
   let readingProfile = 'navigator';
-  let readingMode = 'syllables';
+  let syllableStyle = 'colored';
   let readingLayout = 'blocks';
   let currentBlocks = [];
   let currentText = '';
@@ -88,8 +87,7 @@ document.addEventListener('DOMContentLoaded', () => {
     lineHeight: 1.8,
     wordSpacing: 1,
     theme: 'creme',
-    showSyllables: false,
-    colorSyllables: true,
+    syllableStyle: 'colored',
     readingLayout: 'blocks',
     readingProfile: 'navigator'
   };
@@ -113,17 +111,21 @@ document.addEventListener('DOMContentLoaded', () => {
     const choices = {
       font: Object.keys(FONT_MAP),
       theme: ['creme', 'blauw', 'groen', 'donker'],
-      readingProfile: ['navigator', 'focus'],
+      readingProfile: ['navigator', 'syllables'],
+      syllableStyle: ['colored', 'outlined'],
       readingLayout: ['blocks', 'continuous']
     };
     for (const [key, allowed] of Object.entries(choices)) {
       if (allowed.includes(profile[key])) normalized[key] = profile[key];
       else if (Object.hasOwn(profile, key)) console.warn(`Onbekende leesinstelling ${key}; standaardwaarde wordt gebruikt.`);
     }
-    for (const key of ['showSyllables', 'colorSyllables']) {
-      if (typeof profile[key] === 'boolean') normalized[key] = profile[key];
-      else if (Object.hasOwn(profile, key)) console.warn(`Ongeldige leesinstelling ${key}; standaardwaarde wordt gebruikt.`);
+    const legacyProfile = !Object.hasOwn(profile, 'readingProfile') ||
+      ['navigator', 'personal'].includes(profile.readingProfile);
+    if (legacyProfile && profile.readingMode !== 'sounds' &&
+        (profile.showSyllables === true || (profile.showSyllables !== false && profile.readingMode === 'syllables'))) {
+      normalized.readingProfile = 'syllables';
     }
+    if (!Object.hasOwn(profile, 'syllableStyle') && profile.colorSyllables === false) normalized.syllableStyle = 'outlined';
     return normalized;
   }
 
@@ -172,27 +174,20 @@ document.addEventListener('DOMContentLoaded', () => {
       if (activeRadio) activeRadio.checked = true;
     }
 
-    // 5. Lettergrepen
-    const showSyl = Boolean(profile.showSyllables);
-    const colorSyl = Boolean(profile.colorSyllables);
-    if (updateInputs && toggleShowSyllables) {
-      toggleShowSyllables.checked = showSyl;
-    }
-    if (updateInputs && toggleColorSyllables) {
-      toggleColorSyllables.checked = colorSyl;
-    }
-    setReadingProfile(profile.readingProfile, showSyl, colorSyl);
+    syllableStyle = profile.syllableStyle;
+    setReadingProfile(profile.readingProfile);
   }
 
-  function setReadingProfile(profile, showSyllables = toggleShowSyllables.checked, colorSyllables = toggleColorSyllables.checked) {
-    readingProfile = ['navigator', 'focus'].includes(profile) ? profile : 'navigator';
-    readingMode = readingProfile === 'navigator' && showSyllables ? 'syllables' : 'sounds';
+  function setReadingProfile(profile) {
+    readingProfile = profile === 'syllables' ? 'syllables' : 'navigator';
+    const showSyllables = readingProfile === 'syllables';
     document.body.dataset.activeProfile = readingProfile;
-    document.body.classList.toggle('sound-mode', readingMode === 'sounds' && readingProfile !== 'focus');
-    document.body.classList.toggle('show-syllables', readingMode === 'syllables' && showSyllables);
-    document.body.classList.toggle('color-syllables', readingMode === 'syllables' && colorSyllables);
-    readingModeButtons.forEach(button => {
-      button.setAttribute('aria-pressed', String((showSyllables ? 'syllables' : 'sounds') === button.dataset.readingMode));
+    document.body.classList.toggle('sound-mode', !showSyllables);
+    document.body.classList.toggle('show-syllables', showSyllables);
+    document.body.classList.toggle('color-syllables', showSyllables && syllableStyle === 'colored');
+    syllableAppearance.hidden = !showSyllables;
+    syllableStyleRadios.forEach(radio => {
+      radio.checked = radio.value === syllableStyle;
     });
     readingProfileButtons.forEach(button => {
       const selected = button.dataset.readingProfile === readingProfile;
@@ -205,10 +200,6 @@ document.addEventListener('DOMContentLoaded', () => {
       const rawText = textInput.value.trim();
       renderBlocks(splitIntoReadingBlocks(rawText), false, rawText);
     }
-  }
-
-  function wordFocusEnabled() {
-    return readingProfile === 'focus';
   }
 
   function applyWordSpacing(value, updateInputs = true) {
@@ -238,9 +229,7 @@ document.addEventListener('DOMContentLoaded', () => {
       lineHeight: profileLineHeight ? Number(profileLineHeight.value) : 1.8,
       wordSpacing: Number(profileWordSpacing.value),
       theme: selectedTheme,
-      showSyllables: Boolean(toggleShowSyllables?.checked),
-      colorSyllables: Boolean(toggleColorSyllables?.checked),
-      readingMode,
+      syllableStyle,
       readingLayout,
       readingProfile
     };
@@ -280,18 +269,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const saved = readStoredProfile(PROFILE_KEY);
     if (saved) {
       const migrated = { ...saved };
-      const legacyProfile = !Object.hasOwn(saved, 'readingProfile') &&
-        (['sounds', 'syllables'].includes(saved.readingMode) ||
-          typeof saved.showSyllables === 'boolean' || typeof saved.colorSyllables === 'boolean');
-      if (legacyProfile || ['personal', 'sounds'].includes(saved.readingProfile)) {
-        migrated.readingProfile = 'navigator';
-        if (legacyProfile) {
-          migrated.showSyllables = saved.readingMode !== 'sounds' &&
-            (typeof saved.showSyllables === 'boolean' ? saved.showSyllables : true);
-        } else if (saved.readingProfile === 'sounds') {
-          migrated.showSyllables = false;
-        }
-      }
       if (migrated.theme === 'geel') migrated.theme = 'creme';
       applyProfile(migrated, true);
       saveProfile();
@@ -365,13 +342,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  readingModeButtons.forEach(button => {
-    button.addEventListener('click', () => {
-      toggleShowSyllables.checked = button.dataset.readingMode === 'syllables';
-      toggleShowSyllables.dispatchEvent(new Event('change'));
-    });
-  });
-
   themeRadios.forEach(radio => {
     radio.addEventListener('change', () => {
       if (radio.checked) {
@@ -411,22 +381,14 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  if (toggleShowSyllables) {
-    toggleShowSyllables.addEventListener('change', () => {
+  syllableStyleRadios.forEach(radio => {
+    radio.addEventListener('change', () => {
+      if (!radio.checked) return;
+      syllableStyle = radio.value;
       setReadingProfile(readingProfile);
       saveProfile();
     });
-  }
-
-  if (toggleColorSyllables) {
-    toggleColorSyllables.addEventListener('change', () => {
-      if (toggleColorSyllables.checked && !toggleShowSyllables.checked) {
-        toggleShowSyllables.checked = true;
-      }
-      setReadingProfile(readingProfile);
-      saveProfile();
-    });
-  }
+  });
 
   // --- 3. Tekstinvoer Hulpjes & Woordenteller ---
   function updateCounter() {
@@ -661,10 +623,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function formatTextWithSyllables(text) {
     const syllables = splitDutchSyllables(text);
-    const content = syllables.length > 1
-      ? syllables.map((syllable, index) =>
-        `<span class="syl syl-c${index % 4}">${escapeHtml(syllable)}</span>`).join('')
-      : escapeHtml(text);
+    const content = syllables.map((syllable, index) =>
+      `<span class="syl syl-c${index % 4}">${escapeHtml(syllable)}</span>`).join('');
     return `<span class="syl-word">${content}</span>`;
   }
 
@@ -720,14 +680,10 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function formatReadingText(text) {
-    return text.replace(/\S+|\s+/g, (token, offset) => {
+    return text.replace(/\S+|\s+/g, token => {
       if (/^\s+$/.test(token)) return escapeHtml(token);
-      const attributes = wordFocusEnabled()
-        ? ` tabindex="0" role="button" aria-label="Leespositie: ${escapeHtml(token)}" aria-pressed="false"`
-        : '';
-      const start = `<span class="word-group" data-word-start="${offset}"${attributes}>`;
-      if (readingProfile === 'focus') return `${start}${escapeHtml(token)}</span>`;
-      if (readingMode === 'syllables') {
+      const start = '<span class="word-group">';
+      if (readingProfile === 'syllables') {
         return `${start}${formatTextWithSyllables(token)}</span>`;
       }
       const pieces = token.split(/([\p{L}\p{M}]+(?:['’-][\p{L}\p{M}]+)*)/u);
@@ -739,48 +695,16 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function clearReadingFocus() {
-    outputArea.querySelectorAll('.active-focus, .active-word, .has-word-focus').forEach(element => {
-      element.classList.remove('active-focus', 'active-word', 'has-word-focus');
-      if (element.matches('.word-group[role="button"]')) element.setAttribute('aria-pressed', 'false');
+    outputArea.querySelectorAll('.active-focus').forEach(element => {
+      element.classList.remove('active-focus');
     });
-    outputArea.classList.remove('has-focus', 'has-word-focus');
+    outputArea.classList.remove('has-focus');
   }
 
   function focusReadingPart(element) {
     clearReadingFocus();
-    if (element.matches('.word-group')) {
-      element.classList.add('active-word');
-      element.setAttribute('aria-pressed', 'true');
-      element.closest('.blokje-content').classList.add('has-word-focus');
-      outputArea.classList.add('has-word-focus');
-    } else {
-      element.classList.add('active-focus');
-      outputArea.classList.add('has-focus');
-    }
-  }
-
-  function handleWordFocus(event) {
-    const word = event.target.closest('.word-group[role="button"]');
-    if (!word || !wordFocusEnabled()) return;
-    if (event.type === 'keydown' && event.key !== 'Enter' && event.key !== ' ') return;
-    event.preventDefault();
-    const active = word.classList.contains('active-word');
-    if (active) clearReadingFocus();
-    else focusReadingPart(word);
-  }
-  outputArea.addEventListener('click', handleWordFocus);
-  outputArea.addEventListener('keydown', handleWordFocus);
-
-  function trackSpeechPosition(utterance, readingUnit, run) {
-    utterance.onboundary = event => {
-      if (run !== speechRun || !wordFocusEnabled() || event.name !== 'word') return;
-      const words = Array.from(readingUnit.querySelectorAll('.word-group'));
-      const word = words.find(element => {
-        const start = Number(element.dataset.wordStart);
-        return event.charIndex >= start && event.charIndex < start + element.textContent.length;
-      });
-      if (word) focusReadingPart(word);
-    };
+    element.classList.add('active-focus');
+    outputArea.classList.add('has-focus');
   }
 
   loadProfile();
@@ -791,7 +715,7 @@ document.addEventListener('DOMContentLoaded', () => {
     currentBlocks = blocks ? [...blocks] : [];
     currentText = originalText;
     outputArea.innerHTML = '';
-    outputArea.classList.remove('has-focus', 'has-word-focus');
+    outputArea.classList.remove('has-focus');
 
     if (!blocks || blocks.length === 0) {
       renderEmptyState();
@@ -876,11 +800,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       }
 
-      article.addEventListener('click', event => {
-        if (!event.target.closest('.word-group[role="button"]')) toggleFocus();
-      });
+      article.addEventListener('click', toggleFocus);
       article.addEventListener('keydown', (e) => {
-        if (e.target.closest('.word-group[role="button"]')) return;
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault();
           toggleFocus();
@@ -1489,7 +1410,6 @@ Op een dag vond Pip een geheimzinnig kaartje op de grond. Er stond op: 'De schat
 
     // Activeer focus op dit blokje tijdens het voorlezen
     focusReadingPart(blockElement);
-    trackSpeechPosition(currentUtterance, blockElement, run);
 
     currentUtterance.onend = () => {
       if (run === speechRun) stopSpeaking();
@@ -1535,7 +1455,6 @@ Op een dag vond Pip een geheimzinnig kaartje op de grond. Er stond op: 'De schat
       if (nlVoice) currentUtterance.voice = nlVoice;
       currentUtterance.lang = 'nl-NL';
       currentUtterance.rate = 0.9;
-      trackSpeechPosition(currentUtterance, el, run);
 
       currentUtterance.onend = () => {
         if (run !== speechRun) return;
