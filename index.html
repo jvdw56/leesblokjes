@@ -221,17 +221,11 @@
           <section id="reading-options" aria-labelledby="reading-options-title">
             <h3 id="reading-options-title" class="profile-label-title">Overige instellingen</h3>
           <div id="syllable-options" class="toggles-grid">
-            <!-- Optie 5: Lettergrepen tonen -->
-            <label class="toggle-control" for="toggle-show-syllables">
-              <div class="toggle-info">
-                <span class="toggle-title">Lettergrepen tonen</span>
-                <span class="toggle-desc">Vervangt klankmarkeringen door lettergrepen: [Ne] [der] [land]</span>
-              </div>
-              <div class="switch">
-                <input type="checkbox" id="toggle-show-syllables" role="switch" aria-label="Lettergrepen tonen in- of uitschakelen">
-                <span class="slider"></span>
-              </div>
-            </label>
+            <div class="reading-mode-picker" role="group" aria-label="Leesmodus">
+              <button type="button" class="reading-mode-button" data-reading-mode="syllables" aria-pressed="false">Lettergrepen</button>
+              <button type="button" class="reading-mode-button" data-reading-mode="sounds" aria-pressed="true">Klanken</button>
+            </div>
+            <input type="checkbox" id="toggle-show-syllables" hidden aria-label="Lettergrepen tonen">
 
             <!-- Optie 6: Lettergrepen kleuren -->
             <label class="toggle-control" for="toggle-color-syllables">

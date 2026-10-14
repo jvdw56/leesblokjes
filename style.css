@@ -445,6 +445,41 @@ body {
   margin-bottom: 0;
 }
 
+.reading-mode-picker {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 3px;
+  padding: 3px;
+  border: 1px solid var(--blokje-border);
+  border-radius: 8px;
+  background: var(--color-card-bg);
+}
+
+.reading-mode-button {
+  min-width: 0;
+  padding: 8px 5px;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--color-text-main);
+  font: inherit;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+
+.reading-mode-button[aria-pressed="true"] {
+  background: var(--primary-light);
+  border-color: #2563eb;
+  font-weight: 600;
+}
+
+.reading-mode-button:focus-visible {
+  outline: 3px solid var(--accent-amber);
+  outline-offset: 2px;
+}
+
 #reading-options {
   margin-top: 12px;
 }

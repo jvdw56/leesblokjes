@@ -33,6 +33,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const toggleShowSyllables = document.getElementById('toggle-show-syllables');
   const toggleColorSyllables = document.getElementById('toggle-color-syllables');
   const readingProfileButtons = document.querySelectorAll('[data-reading-profile]');
+  const readingModeButtons = document.querySelectorAll('[data-reading-mode]');
   const readingLayoutButtons = document.querySelectorAll('[data-reading-layout]');
   let readingProfile = 'navigator';
   let readingMode = 'syllables';
@@ -190,6 +191,9 @@ document.addEventListener('DOMContentLoaded', () => {
     document.body.classList.toggle('sound-mode', readingMode === 'sounds' && readingProfile !== 'focus');
     document.body.classList.toggle('show-syllables', readingMode === 'syllables' && showSyllables);
     document.body.classList.toggle('color-syllables', readingMode === 'syllables' && colorSyllables);
+    readingModeButtons.forEach(button => {
+      button.setAttribute('aria-pressed', String((showSyllables ? 'syllables' : 'sounds') === button.dataset.readingMode));
+    });
     readingProfileButtons.forEach(button => {
       const selected = button.dataset.readingProfile === readingProfile;
       button.setAttribute('aria-checked', String(selected));
@@ -358,6 +362,13 @@ document.addEventListener('DOMContentLoaded', () => {
     button.addEventListener('click', () => {
       setReadingLayout(button.dataset.readingLayout);
       saveProfile();
+    });
+  });
+
+  readingModeButtons.forEach(button => {
+    button.addEventListener('click', () => {
+      toggleShowSyllables.checked = button.dataset.readingMode === 'syllables';
+      toggleShowSyllables.dispatchEvent(new Event('change'));
     });
   });
 

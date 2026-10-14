@@ -29,8 +29,9 @@ Home en End verplaatsen selectie en focus; Tab verlaat de radiogroep.
   spatie activeert/uitschakelt de woordpositie. Het bestaande leeslampje per
   alineablok blijft beschikbaar.
 
-**Lettergrepen tonen** en **Lettergrepen kleuren** staan permanent onder
-Overige instellingen. Binnen Klanknavigator vervangt Lettergrepen tonen de
+**Lettergrepen/Klanken** en **Lettergrepen kleuren** staan permanent onder
+Overige instellingen. De moduskeuze is een wederzijds exclusieve segmented control,
+net als Alineablokken/Doorlopende tekst. Binnen Klanknavigator vervangt Lettergrepen de
 klankbouwstenen door de bestaande geschreven Nederlandse lettergreepblokken.
 De kleurschakelaar behoudt de bestaande pastelkleuren. Focuslezen houdt zijn
 rustige tekstweergave; beide voorkeuren blijven bewaard bij profielwisselingen
@@ -160,6 +161,14 @@ Kleine DOCX- en PDF-bestanden worden in de test gegenereerd en via de echte
 Mammoth- en PDF.js-extractie en uploadhandler verwerkt.
 Clipboard en spraak worden gecontroleerd met testdubbels;
 dit verifieert tekst en aansturing, niet het daadwerkelijk hoorbare geluid.
+
+Aanvullende tests bedienen de Lettergrepen/Klanken-knoppen herhaaldelijk zonder
+conversieklik en controleren directe DOM-wijzigingen, exclusieve selectie,
+tekstbehoud, ongewijzigde nog niet verwerkte invoer en herstel na herladen.
+
+Website-import en LeesBlokjes op websites BETA ontbreken al in het herstelpunt
+van deze reparatie. De bestaande tests bewaken die eerdere verwijdering; deze
+functies worden niet opnieuw toegevoegd als onderdeel van de gerichte reparatie.
 
 Voor 1920x1080, 1366x768 en 390x844 worden alle vijf woordafstandstanden gemeten
 in normale tekst, lettergrepen en klanken, zowel in blokken als doorlopende tekst.

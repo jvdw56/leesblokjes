@@ -159,7 +159,7 @@
         let doc = app.document;
         const api = app.LeesBlokjes;
         const choose = mode => {
-          doc.getElementById('toggle-show-syllables').checked = mode === 'syllables';
+          doc.querySelector(`[data-reading-mode="${mode === 'syllables' ? 'syllables' : 'sounds'}"]`).click();
           doc.querySelector(`[data-reading-profile="${mode === 'normal' ? 'focus' : 'navigator'}"]`).click();
           if (doc.getElementById('text-input').value.trim()) doc.getElementById('btn-convert').click();
         };
@@ -169,7 +169,7 @@
         assert(doc.querySelector('[data-reading-profile="navigator"]').getAttribute('aria-checked') === 'true',
           'Klanknavigator is het standaardprofiel');
         assert(doc.querySelectorAll('[data-reading-profile]').length === 2 &&
-          !doc.querySelector('[data-reading-mode], .sound-guide, #btn-close-sidebar, #btn-toggle-sidebar') &&
+          !doc.querySelector('.sound-guide, #btn-close-sidebar, #btn-toggle-sidebar') &&
           !doc.querySelector('.reading-profile-section details'),
           'Alleen twee permanente profielkaarten zonder oude knoppen, legenda of inklapbediening');
         assert(JSON.stringify(Array.from(doc.querySelectorAll('[data-reading-profile]')).map(button => button.textContent.trim().replace(/\s*✓$/, ''))) ===
@@ -185,6 +185,26 @@
           !/F&L|Taal in Blokjes|Leeskaart en klankkleuren/.test(doc.body.textContent),
           'Interface gebruikt uitsluitend de eigen naam LeesBlokjes™ zonder methodenverwijzingen');
         choose('syllables');
+        doc.getElementById('text-input').value = 'Nederland robotje.\n\nEuropa vulkanen!';
+        doc.getElementById('btn-convert').click();
+        const processed = Array.from(doc.querySelectorAll('.reading-unit')).map(unit => unit.dataset.originalText);
+        doc.getElementById('text-input').value = 'Nog niet verwerkt';
+        for (let repeat = 0; repeat < 3; repeat++) {
+          for (const mode of ['sounds', 'syllables']) {
+            doc.querySelector(`[data-reading-mode="${mode}"]`).click();
+            assert(doc.querySelectorAll('[data-reading-mode][aria-pressed="true"]').length === 1 &&
+              doc.querySelector(`[data-reading-mode="${mode}"]`).getAttribute('aria-pressed') === 'true',
+              `Leesmodusknoppen selecteren exact een optie: ${mode}/${repeat}`);
+            assert(content().querySelector(mode === 'sounds' ? '.sound' : '.syl') &&
+              !content().querySelector(mode === 'sounds' ? '.syl' : '.sound') &&
+              JSON.stringify(Array.from(doc.querySelectorAll('.reading-unit')).map(unit => unit.dataset.originalText)) === JSON.stringify(processed) &&
+              doc.getElementById('text-input').value === 'Nog niet verwerkt',
+              `Modusklik rendert direct, behoudt uitvoer en overschrijft geen invoer: ${mode}/${repeat}`);
+            assert(JSON.parse(localStorage.getItem(keys[0])).readingMode === mode,
+              `Modusknop gebruikt bestaande profielopslag: ${mode}/${repeat}`);
+          }
+        }
+        doc.getElementById('btn-clear').click();
         const syllableCases = [
           ['Nederland', ['Ne', 'der', 'land']],
           ['robotje', ['ro', 'bot', 'je']],
@@ -965,6 +985,9 @@
         assert(doc.getElementById('toggle-show-syllables').checked &&
           !doc.getElementById('toggle-color-syllables').checked && isNavigator(doc),
           'Beide onafhankelijke lettergreepschakelaars worden hersteld na herladen');
+        assert(doc.querySelector('[data-reading-mode="syllables"]').getAttribute('aria-pressed') === 'true' &&
+          doc.querySelector('[data-reading-mode="sounds"]').getAttribute('aria-pressed') === 'false',
+          'Segmented control herstelt de opgeslagen lettergreepvoorkeur na herladen');
         for (const [oldMode, oldTheme, expectedProfile, expectedTheme] of [
           ['syllables', 'geel', 'navigator', 'creme'],
           ['sounds', 'blauw', 'navigator', 'blauw'],
