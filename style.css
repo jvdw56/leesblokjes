@@ -49,7 +49,7 @@
 /* --------------------------------------------------------------------------
    Thema's: Crème, Warmblauw, Warmgroen, Donker
    -------------------------------------------------------------------------- */
-body[data-theme="creme"] {
+:root[data-theme="creme"], body[data-theme="creme"] {
   --color-bg-page: #fbf9f4;
   --color-card-bg: #ffffff;
   --color-text-main: #232b38;
@@ -66,7 +66,7 @@ body[data-theme="creme"] {
   --primary-light: #eff6ff;
 }
 
-body[data-theme="blauw"] {
+:root[data-theme="blauw"], body[data-theme="blauw"] {
   --color-bg-page: #f0f2f3;
   --color-card-bg: #ffffff;
   --color-text-main: #18283d;
@@ -83,7 +83,7 @@ body[data-theme="blauw"] {
   --primary-light: #e0f2fe;
 }
 
-body[data-theme="groen"] {
+:root[data-theme="groen"], body[data-theme="groen"] {
   --color-bg-page: #f1f3ec;
   --color-card-bg: #ffffff;
   --color-text-main: #143522;
@@ -100,7 +100,7 @@ body[data-theme="groen"] {
   --primary-light: #d1fae5;
 }
 
-body[data-theme="donker"],
+:root[data-theme="donker"], body[data-theme="donker"],
 body.dark-mode {
   --color-bg-page: #151a23; /* Rustig donker leisteen, geen fel OLED-zwart */
   --color-card-bg: #1e2533;
@@ -136,6 +136,7 @@ body.dark-mode {
 
 html {
   font-size: 16px;
+  background-color: var(--color-bg-page);
   scroll-behavior: smooth;
 }
 
@@ -1011,6 +1012,33 @@ body.dark-mode .slider {
 .upload-dropzone:hover {
   border-color: var(--primary);
   background-color: var(--primary-light);
+}
+
+.upload-preview {
+  display: block;
+  max-width: 100%;
+  max-height: 260px;
+  margin: 12px auto 0;
+  object-fit: contain;
+  border-radius: 6px;
+}
+
+.upload-preview[hidden] {
+  display: none;
+}
+
+.upload-review {
+  margin-top: 16px;
+}
+
+.upload-review .card-title {
+  margin-bottom: 10px;
+}
+
+#upload-progress {
+  width: 100%;
+  max-width: 280px;
+  accent-color: var(--primary);
 }
 
 .upload-dropzone:focus-visible {

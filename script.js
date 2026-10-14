@@ -39,6 +39,10 @@ document.addEventListener('DOMContentLoaded', () => {
   let readingLayout = 'blocks';
   let currentBlocks = [];
   let currentText = '';
+  let awaitingImageReview = false;
+  let imageReviewAvailable = false;
+  let uploadController = null;
+  let uploadPreviewUrl = null;
 
   // --- DOM Elementen voor Document Upload ---
   const fileInput = document.getElementById('file-input');
@@ -53,6 +57,12 @@ document.addEventListener('DOMContentLoaded', () => {
   const uploadAlert = document.getElementById('upload-alert');
   const uploadAlertText = document.getElementById('upload-alert-text');
   const btnCloseAlert = document.getElementById('btn-close-alert');
+  const uploadPreview = document.getElementById('upload-preview');
+  const uploadReview = document.getElementById('upload-review');
+  const uploadProgress = document.getElementById('upload-progress');
+  const uploadProgressValue = document.getElementById('upload-progress-value');
+  const btnCancelUpload = document.getElementById('btn-cancel-upload');
+  const uploadSuccessHeadline = document.getElementById('upload-success-headline');
 
   // --- DOM Elementen voor Invoerbronnen ---
   const tabBtnText = document.getElementById('tab-btn-text');
@@ -86,7 +96,7 @@ document.addEventListener('DOMContentLoaded', () => {
     fontSize: 20,
     lineHeight: 1.8,
     wordSpacing: 1,
-    theme: 'creme',
+    theme: 'donker',
     syllableStyle: 'colored',
     readingLayout: 'blocks',
     readingProfile: 'navigator'
@@ -166,7 +176,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 4. Achtergrondkleur
     const validThemes = ['creme', 'blauw', 'groen', 'donker'];
-    const theme = validThemes.includes(profile.theme) ? profile.theme : 'creme';
+    const theme = validThemes.includes(profile.theme) ? profile.theme : 'donker';
+    document.documentElement.dataset.theme = theme;
+    document.documentElement.style.colorScheme = theme === 'donker' ? 'dark' : 'light';
     document.body.setAttribute('data-theme', theme);
     document.body.classList.toggle('dark-mode', theme === 'donker');
     if (updateInputs) {
@@ -196,7 +208,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     if (currentBlocks.length) {
       renderBlocks(currentBlocks, false, currentText);
-    } else if (textInput.value.trim()) {
+    } else if (textInput.value.trim() && !awaitingImageReview) {
       const rawText = textInput.value.trim();
       renderBlocks(splitIntoReadingBlocks(rawText), false, rawText);
     }
@@ -222,7 +234,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function getActiveProfileFromUI() {
-    const selectedTheme = document.querySelector('input[name="profile-theme"]:checked')?.value || 'creme';
+    const selectedTheme = document.querySelector('input[name="profile-theme"]:checked')?.value || 'donker';
     return {
       font: profileFont ? profileFont.value : 'Lexend',
       fontSize: profileFontSize ? Number(profileFontSize.value) : 20,
@@ -288,7 +300,7 @@ document.addEventListener('DOMContentLoaded', () => {
         font: old.opendyslexic === true ? 'OpenDyslexic' : 'Lexend',
         fontSize: old.largeFont === true ? 24 : 20,
         lineHeight: old.largeSpacing === true ? 2.2 : 1.8,
-        theme: old.darkMode === true ? 'donker' : 'creme',
+        theme: typeof old.darkMode === 'boolean' ? (old.darkMode ? 'donker' : 'creme') : 'donker',
         showSyllables: typeof old.showSyllables === 'boolean' ? old.showSyllables : true,
         colorSyllables: typeof old.colorSyllables === 'boolean' ? old.colorSyllables : true,
         readingProfile: 'navigator'
@@ -345,6 +357,8 @@ document.addEventListener('DOMContentLoaded', () => {
   themeRadios.forEach(radio => {
     radio.addEventListener('change', () => {
       if (radio.checked) {
+        document.documentElement.dataset.theme = radio.value;
+        document.documentElement.style.colorScheme = radio.value === 'donker' ? 'dark' : 'light';
         document.body.setAttribute('data-theme', radio.value);
         document.body.classList.toggle('dark-mode', radio.value === 'donker');
         saveProfile();
@@ -844,6 +858,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     const blocks = splitIntoReadingBlocks(rawText);
+    awaitingImageReview = false;
     renderBlocks(blocks, true, rawText);
     showToast(readingLayout === 'continuous'
       ? 'Gelukt! Je doorlopende leestekst staat klaar. 🌟'
@@ -867,6 +882,10 @@ Op een dag vond Pip een geheimzinnig kaartje op de grond. Er stond op: 'De schat
 
   // --- 7. Wissen Knop ---
   btnClear.addEventListener('click', () => {
+    if (uploadController) uploadController.abort('clear');
+    awaitingImageReview = false;
+    imageReviewAvailable = false;
+    syncImportEditor(getActiveImportSection());
     textInput.value = '';
     updateCounter();
     renderBlocks([]);
@@ -878,24 +897,52 @@ Op een dag vond Pip een geheimzinnig kaartje op de grond. Er stond op: 'De schat
 
   // --- 8. Document Processor & Upload (.docx & .pdf) ---
   /**
-   * Modulaire document processor voor het extraheren van tekst uit Word- en PDF-bestanden.
+  * Modulaire document processor voor tekst uit Word, PDF en afbeeldingen.
    * Werkt 100% lokaal in het browsergeheugen zonder server of externe API-oproepen.
-   * Klaar voor latere uitbreiding met client-side OCR (bijv. Tesseract.js WebAssembly).
+  * Afbeeldingen gebruiken Nederlandse client-side OCR via Tesseract.js WebAssembly.
    */
   const DocumentProcessor = {
-    supportedExtensions: ['docx', 'pdf'],
+    supportedExtensions: ['docx', 'pdf', 'jpg', 'jpeg', 'png', 'webp'],
+    maxImageBytes: 10 * 1024 * 1024,
+    maxDocumentBytes: 20 * 1024 * 1024,
+    maxImagePixels: 12000000,
+    ocrActive: false,
+
+    getFileType(file) {
+      const extension = this.getFileExtension(file.name);
+      const mimeTypes = {
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
+        'application/pdf': 'pdf', 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp'
+      };
+      const mime = (file.type || '').toLowerCase();
+      const mimeType = mimeTypes[mime];
+      const extensionType = extension === 'jpeg' ? 'jpg' : extension;
+      if (mime && mime !== 'application/octet-stream' && !mimeType) return null;
+      if (mimeType && this.supportedExtensions.includes(extension) && mimeType !== extensionType) return null;
+      return mimeType || (this.supportedExtensions.includes(extension) ? extensionType : null);
+    },
+
+    isImage(type) {
+      return ['jpg', 'png', 'webp'].includes(type);
+    },
 
     /**
      * Extraheert tekst uit een aangeleverd File object (.docx of .pdf).
      * @param {File} file
      * @returns {Promise<{ text: string, wordCount: number, fileName: string, fileType: string, isScannedOrEmpty: boolean }>}
      */
-    async extractText(file) {
+    async extractText(file, onProgress, signal) {
       if (!file) {
         throw new Error('Geen bestand geselecteerd.');
       }
 
-      const ext = this.getFileExtension(file.name);
+      const ext = this.getFileType(file);
+      if (!ext) throw new Error('Dit bestandstype wordt niet ondersteund. Kies een Word-, PDF- of afbeeldingsbestand.');
+      if (file.size > (this.isImage(ext) ? this.maxImageBytes : this.maxDocumentBytes)) {
+        throw new Error(this.isImage(ext)
+          ? 'Deze afbeelding is te groot. Kies een kleinere afbeelding of maak een nieuwe foto.'
+          : 'Dit document is te groot. Kies een bestand van maximaal 20 MiB.');
+      }
       let rawText = '';
 
       if (ext === 'docx') {
@@ -903,7 +950,7 @@ Op een dag vond Pip een geheimzinnig kaartje op de grond. Er stond op: 'De schat
       } else if (ext === 'pdf') {
         rawText = await this.extractFromPdf(file);
       } else {
-        throw new Error(`Het formaat .${ext || 'onbekend'} wordt niet ondersteund. Kies een Word- (.docx) of PDF- (.pdf) bestand.`);
+        rawText = await this.extractWithOcr(file, onProgress, signal);
       }
 
       const cleanText = this.cleanExtractedText(rawText);
@@ -1074,21 +1121,86 @@ Op een dag vond Pip een geheimzinnig kaartje op de grond. Er stond op: 'De schat
       return text.trim().split(/\s+/).filter(Boolean).length;
     },
 
-    /**
-     * Extensiepunt voor toekomstige OCR functionaliteit.
-     * Gescande PDF's en foto's kunnen in een volgende fase client-side via bijvoorbeeld Tesseract.js (WASM)
-     * worden verwerkt zonder dat gegevens ooit een server raken.
-     */
-    async extractWithOcr(file, onProgress) {
-      throw new Error('OCR wordt in een toekomstige versie ondersteund.');
+    async extractWithOcr(file, onProgress = () => {}, signal) {
+      if (this.ocrActive) throw new Error('De tekstherkenning is al bezig. Wacht tot deze klaar is.');
+      this.ocrActive = true;
+      let worker;
+      let bitmap;
+      let timeout;
+      let rejectJob;
+      const stopped = () => rejectJob?.(new DOMException('Gestopt', 'AbortError'));
+      const startupError = 'De tekstherkenning kon niet worden gestart. Controleer de internetverbinding en probeer opnieuw.';
+      try {
+        if (signal?.aborted) throw new DOMException('Gestopt', 'AbortError');
+        bitmap = await createImageBitmap(file);
+        if (signal?.aborted) throw new DOMException('Gestopt', 'AbortError');
+        if (bitmap.width * bitmap.height > this.maxImagePixels) {
+          throw new Error('Deze afbeelding is te groot. Kies een kleinere afbeelding of maak een nieuwe foto.');
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = bitmap.width;
+        canvas.height = bitmap.height;
+        canvas.getContext('2d').drawImage(bitmap, 0, 0);
+        bitmap.close();
+        bitmap = null;
+        const png = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+        canvas.width = canvas.height = 0;
+        if (!png) throw new Error(startupError);
+        const bytes = await png.arrayBuffer();
+        if (signal?.aborted) throw new DOMException('Gestopt', 'AbortError');
+        return await new Promise((resolve, reject) => {
+          rejectJob = reject;
+          signal?.addEventListener('abort', stopped, { once: true });
+          timeout = setTimeout(() => reject(new Error(startupError)), 180000);
+          worker = new Worker(new URL('ocr-worker.js', document.baseURI));
+          worker.onmessage = event => {
+            const message = event.data;
+            if (message.type === 'progress') onProgress(message.progress);
+            else if (message.type === 'result') resolve(message.text);
+            else if (message.type === 'error') reject(new Error(startupError));
+          };
+          worker.onerror = event => {
+            event.preventDefault();
+            reject(new Error(startupError));
+          };
+          worker.postMessage(bytes, [bytes]);
+        });
+      } catch (error) {
+        if (signal?.aborted) throw new DOMException('Gestopt', 'AbortError');
+        if (error.message?.includes('te groot')) throw error;
+        throw new Error(startupError);
+      } finally {
+        signal?.removeEventListener('abort', stopped);
+        clearTimeout(timeout);
+        worker?.terminate();
+        bitmap?.close();
+        this.ocrActive = false;
+      }
     }
   };
+
+  function clearUploadPreview() {
+    uploadPreview.hidden = true;
+    uploadPreview.removeAttribute('src');
+    if (uploadPreviewUrl) URL.revokeObjectURL(uploadPreviewUrl);
+    uploadPreviewUrl = null;
+  }
+
+  function syncImportEditor(section) {
+    const reviewing = section === 'doc' && imageReviewAvailable;
+    const target = reviewing ? uploadReview : importPanelText;
+    target.append(textInput.closest('.textarea-wrapper'), document.querySelector('.input-footer'));
+    uploadReview.hidden = !reviewing;
+    if (reviewing) textInput.setAttribute('aria-label', 'Herkende tekst');
+    else textInput.removeAttribute('aria-label');
+  }
 
   // Upload UI State Management
   function setUploadState(state, data = {}) {
     if (!uploadIdle || !uploadProcessing || !uploadSuccess) return;
 
     if (state === 'idle') {
+      clearUploadPreview();
       uploadIdle.style.display = 'flex';
       uploadProcessing.style.display = 'none';
       uploadSuccess.style.display = 'none';
@@ -1107,6 +1219,7 @@ Op een dag vond Pip een geheimzinnig kaartje op de grond. Er stond op: 'De schat
       uploadSuccess.style.display = 'flex';
       hideUploadAlert();
       if (uploadFileName) uploadFileName.textContent = data.fileName || 'Document';
+      uploadSuccessHeadline.textContent = data.isImage ? 'Afbeelding succesvol verwerkt.' : 'Document succesvol geladen';
       if (uploadWordCount) {
         const count = data.wordCount || 0;
         uploadWordCount.textContent = `${count} ${count === 1 ? 'woord' : 'woorden'} gevonden`;
@@ -1127,36 +1240,66 @@ Op een dag vond Pip een geheimzinnig kaartje op de grond. Er stond op: 'De schat
   }
 
   /**
-   * Verwerkt een geüpload Word- of PDF-bestand:
-   * 1. Valideert bestandstype (.docx of .pdf)
+  * Verwerkt een document of foto via de gedeelde importroute:
+  * 1. Valideert bestandstype en bestandsgrootte
    * 2. Toont voortgangsstatus
    * 3. Extraheert tekst lokaal via DocumentProcessor
    * 4. Controleert of tekst gevonden is (of toont OCR-melding)
-   * 5. Vult het tekstvak en genereert direct LeesBlokjes
+  * 5. Vult het gedeelde tekstvak; foto's wachten op handmatige verwerking
    */
   async function handleFileUpload(file) {
-    if (!file) return;
+    if (!file || uploadController) return;
 
     hideUploadAlert();
 
-    const ext = DocumentProcessor.getFileExtension(file.name);
-    if (!DocumentProcessor.supportedExtensions.includes(ext)) {
-      showUploadAlert('Alleen Word- (.docx) en PDF-bestanden (.pdf) worden ondersteund. Kies een bestand met de juiste extensie.');
+    const type = DocumentProcessor.getFileType(file);
+    const isImage = DocumentProcessor.isImage(type);
+    if (!type) {
       setUploadState('idle');
+      showUploadAlert((file.type || '').startsWith('image/')
+        ? 'Dit bestandstype wordt niet ondersteund. Gebruik JPG, PNG of WebP.'
+        : 'Dit bestandstype wordt niet ondersteund. Kies een Word-, PDF- of afbeeldingsbestand.');
+      return;
+    }
+    if (file.size > (isImage ? DocumentProcessor.maxImageBytes : DocumentProcessor.maxDocumentBytes)) {
+      setUploadState('idle');
+      showUploadAlert(isImage
+        ? 'Deze afbeelding is te groot. Kies een kleinere afbeelding of maak een nieuwe foto.'
+        : 'Dit document is te groot. Kies een bestand van maximaal 20 MiB.');
       return;
     }
 
+    const controller = new AbortController();
+    uploadController = controller;
+    fileInput.disabled = true;
+    clearUploadPreview();
+    toggleImportSection('doc');
+    uploadProgress.hidden = uploadProgressValue.hidden = btnCancelUpload.hidden = !isImage;
+    uploadProgress.value = 0;
+    uploadProgressValue.textContent = '0%';
     setUploadState('processing', {
-      title: `Bezig met ${file.name} lezen...`
+      title: isImage ? 'Tekst wordt uit de afbeelding gelezen...' : `Bezig met ${file.name} lezen...`
     });
 
     try {
-      const result = await DocumentProcessor.extractText(file);
+      if (isImage) {
+        uploadPreviewUrl = URL.createObjectURL(file);
+        uploadPreview.src = uploadPreviewUrl;
+        uploadPreview.hidden = false;
+      }
+      const result = await DocumentProcessor.extractText(file, progress => {
+        const percent = Math.round(Math.min(1, Math.max(0, Number(progress) || 0)) * 100);
+        uploadProgress.value = percent;
+        uploadProgressValue.textContent = `${percent}%`;
+      }, controller.signal);
+      if (controller.signal.aborted) return;
 
       // Foutafhandeling: geen tekst gevonden (waarschijnlijk scan of afbeelding)
       if (result.isScannedOrEmpty) {
         setUploadState('idle');
-        showUploadAlert('Dit document bevat waarschijnlijk alleen afbeeldingen of een scan. OCR wordt in een toekomstige versie ondersteund.');
+        showUploadAlert(isImage
+          ? 'Geen leesbare tekst gevonden. Probeer een scherpere foto met beter licht.'
+          : 'Dit document bevat waarschijnlijk alleen afbeeldingen of een scan. OCR voor gescande PDF-bestanden wordt nog niet ondersteund.');
         showToast('Geen tekst gevonden in dit document. ⚠️');
         return;
       }
@@ -1164,12 +1307,20 @@ Op een dag vond Pip een geheimzinnig kaartje op de grond. Er stond op: 'De schat
       // Succesvolle extractie: toon successtatus met bestandsnaam en aantal woorden
       setUploadState('success', {
         fileName: result.fileName,
-        wordCount: result.wordCount
+        wordCount: result.wordCount,
+        isImage
       });
 
       // Vul het invoervak
       textInput.value = result.text;
       updateCounter();
+      awaitingImageReview = isImage;
+      imageReviewAvailable = isImage;
+      syncImportEditor('doc');
+      if (isImage) {
+        showToast(`Afbeelding succesvol verwerkt. ${result.wordCount} woorden gevonden.`);
+        return;
+      }
 
       // Voer direct de bestaande LeesBlokjes verwerking uit
       const blocks = splitIntoReadingBlocks(result.text);
@@ -1180,10 +1331,29 @@ Op een dag vond Pip een geheimzinnig kaartje op de grond. Er stond op: 'De schat
     } catch (err) {
       console.error('Fout bij document upload:', err);
       setUploadState('idle');
+      if (controller.signal.aborted) {
+        if (controller.signal.reason !== 'clear') showUploadAlert('De tekstherkenning is gestopt. Probeer de afbeelding opnieuw.');
+        return;
+      }
       showUploadAlert(err.message || 'Er ging iets mis bij het openen van het document. Probeer het opnieuw.');
       showToast('Kon het document niet inlezen. ⚠️');
+    } finally {
+      if (uploadPreviewUrl) {
+        URL.revokeObjectURL(uploadPreviewUrl);
+        uploadPreviewUrl = null;
+      }
+      fileInput.disabled = false;
+      fileInput.value = '';
+      uploadController = null;
+      btnCancelUpload.hidden = true;
     }
   }
+
+  btnCancelUpload.addEventListener('click', () => uploadController?.abort('stopped'));
+  window.addEventListener('pagehide', () => {
+    uploadController?.abort('clear');
+    clearUploadPreview();
+  });
 
   // File input change listener
   if (fileInput) {
@@ -1236,6 +1406,9 @@ Op een dag vond Pip een geheimzinnig kaartje op de grond. Er stond op: 'De schat
   // Knoppen voor wissen / ander bestand kiezen / melding sluiten
   if (btnRemoveDoc) {
     btnRemoveDoc.addEventListener('click', () => {
+      imageReviewAvailable = false;
+      awaitingImageReview = false;
+      syncImportEditor(getActiveImportSection());
       setUploadState('idle');
       hideUploadAlert();
     });
@@ -1282,6 +1455,7 @@ Op een dag vond Pip een geheimzinnig kaartje op de grond. Er stond op: 'De schat
    */
   function toggleImportSection(targetSection, save = true) {
     const nextActive = Object.hasOwn(SECTION_CONFIG, targetSection) ? targetSection : 'text';
+    syncImportEditor(nextActive);
 
     // Pas toe op alle secties (slechts één geopend houden)
     for (const [key, cfg] of Object.entries(SECTION_CONFIG)) {

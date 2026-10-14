@@ -1,9 +1,26 @@
 <!DOCTYPE html>
-<html lang="nl">
+<html lang="nl" data-theme="donker">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>LeesBlokjes™ - Rustig en fijn lezen</title>
+  <title>LeesBlokjes - Rustig en fijn lezen</title>
+  <script>
+    (() => {
+      let theme = 'donker';
+      try {
+        const saved = JSON.parse(localStorage.getItem('leesblokjes_leesprofiel') || 'null');
+        if (saved && typeof saved === 'object' && !Array.isArray(saved)) {
+          if (['creme', 'blauw', 'groen', 'donker'].includes(saved.theme)) theme = saved.theme;
+          else if (saved.theme === 'geel') theme = 'creme';
+        } else {
+          const old = JSON.parse(localStorage.getItem('leesblokjes_instellingen') || 'null');
+          if (typeof old?.darkMode === 'boolean') theme = old.darkMode ? 'donker' : 'creme';
+        }
+      } catch (error) {}
+      document.documentElement.dataset.theme = theme;
+      document.documentElement.style.colorScheme = theme === 'donker' ? 'dark' : 'light';
+    })();
+  </script>
   
   <!-- Lexend: ontworpen voor optimale leesbaarheid en rust voor de ogen -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -32,7 +49,7 @@
             <span class="block-icon b3"></span>
           </div>
           <div class="header-text">
-            <h1 class="app-title">LeesBlokjes™</h1>
+            <h1 class="app-title">LeesBlokjes</h1>
             <p class="app-tagline">
               Plak of typ je tekst hieronder. Wij verdelen het in rustige, overzichtelijke blokjes zodat lezen weer fijn en makkelijk wordt!
             </p>
@@ -181,7 +198,7 @@
               <div class="theme-picker" role="radiogroup" aria-labelledby="theme-group-label">
                 
                 <label class="theme-option" for="theme-creme">
-                  <input type="radio" name="profile-theme" id="theme-creme" value="creme" checked>
+                  <input type="radio" name="profile-theme" id="theme-creme" value="creme">
                   <span class="theme-swatch swatch-creme" aria-hidden="true"></span>
                   <span class="theme-text">
                     <span class="theme-name">Crème</span>
@@ -205,7 +222,7 @@
                 </label>
 
                 <label class="theme-option" for="theme-donker">
-                  <input type="radio" name="profile-theme" id="theme-donker" value="donker">
+                  <input type="radio" name="profile-theme" id="theme-donker" value="donker" checked>
                   <span class="theme-swatch swatch-donker" aria-hidden="true"></span>
                   <span class="theme-text">
                     <span class="theme-name">Donker</span>
@@ -280,34 +297,34 @@
               id="upload-dropzone"
               tabindex="0"
               role="region"
-              aria-label="Document uploaden via slepen of bestand kiezen"
+              aria-label="Document of foto uploaden via slepen of bestand kiezen"
             >
               <input
                 type="file"
                 id="file-input"
                 class="file-input-hidden"
-                accept=".docx,.pdf,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                aria-label="Kies een Word- (.docx) of PDF- (.pdf) bestand"
+                accept=".docx,.pdf,.jpg,.jpeg,.png,.webp"
+                aria-label="Kies een Word-, PDF- of afbeeldingsbestand"
               >
 
               <!-- Standaard toestand: upload prompt -->
               <div class="upload-idle" id="upload-idle">
                 <div class="upload-top-bar">
                   <span class="upload-label-title">
-                    <span class="emoji-icon" aria-hidden="true">📁</span> Document uploaden
+                    <span class="emoji-icon" aria-hidden="true">📁</span> Document of foto uploaden
                   </span>
-                  <span class="upload-badge">Word (.docx) &amp; PDF (.pdf)</span>
+                  <span class="upload-badge">Word, PDF, JPG, PNG en WebP</span>
                 </div>
                 <div class="upload-cta">
                   <label for="file-input" class="btn-choose-file" tabindex="0" role="button">
                     <span class="emoji-icon" aria-hidden="true">📄</span> Bestand kiezen
                   </label>
                   <span class="upload-or">of</span>
-                  <span class="upload-drag-text">Sleep een Word- of PDF-bestand hierheen</span>
+                  <span class="upload-drag-text">Sleep een Word-, PDF- of afbeeldingsbestand hierheen</span>
                 </div>
                 <p class="upload-privacy-note">
                   <span class="privacy-icon" aria-hidden="true">🔒</span>
-                  100% lokaal en privé in je eigen browser — jouw document wordt nooit naar een server gestuurd.
+                  100% lokaal en privé in je eigen browser. Je document of foto wordt niet naar een server gestuurd.
                 </p>
               </div>
 
@@ -317,6 +334,9 @@
                 <div class="upload-processing-content">
                   <p class="upload-processing-title" id="upload-processing-title">Bezig met document lezen...</p>
                   <p class="upload-processing-sub">We halen de tekst er veilig voor je uit</p>
+                  <progress id="upload-progress" max="100" value="0" aria-label="Voortgang tekstherkenning" hidden></progress>
+                  <span id="upload-progress-value" hidden>0%</span>
+                  <button type="button" id="btn-cancel-upload" class="btn-ghost btn-sm" hidden>Stop tekstherkenning</button>
                 </div>
               </div>
 
@@ -325,7 +345,7 @@
                 <div class="upload-success-content">
                   <div class="upload-success-badge" aria-hidden="true">✅</div>
                   <div class="upload-success-meta">
-                    <div class="upload-success-headline">Document succesvol geladen</div>
+                    <div class="upload-success-headline" id="upload-success-headline">Document succesvol geladen</div>
                     <div class="upload-file-details">
                       <span class="upload-file-icon" aria-hidden="true">📄</span>
                       <span class="upload-file-name" id="upload-file-name">document.docx</span>
@@ -345,7 +365,12 @@
                   </button>
                 </div>
               </div>
+              <img id="upload-preview" class="upload-preview" alt="Lokale voorbeeldweergave van de gekozen afbeelding" hidden>
             </div>
+
+            <section id="upload-review" class="upload-review" aria-labelledby="upload-review-title" hidden>
+              <h3 id="upload-review-title" class="card-title">Herkende tekst</h3>
+            </section>
 
             <!-- Fout- / Waarschuwingsmelding (bijv. gescand document zonder tekst) -->
             <div class="upload-alert" id="upload-alert" style="display: none;" role="alert">
@@ -364,7 +389,7 @@
       <div class="card-header">
         <h2 class="card-title">
           <span class="step-badge">2</span>
-          Jouw LeesBlokjes™
+          Jouw LeesBlokjes
         </h2>
         <div class="output-actions" id="output-actions" style="display: none;">
           <button type="button" id="btn-read-all" class="btn-secondary" title="Lees de hele tekst voor">

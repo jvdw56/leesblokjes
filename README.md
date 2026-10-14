@@ -1,4 +1,4 @@
-# LeesBlokjes™
+# LeesBlokjes
 
 ## Importbronnen
 
@@ -10,6 +10,27 @@ bron hersteld uit localStorage. Invoer en importstatus blijven behouden bij wiss
 
 Word (.docx) en PDF (.pdf) worden lokaal in de browser verwerkt met de bestaande
 Mammoth- en PDF.js-bibliotheken. Tekst kan ook direct worden getypt of geplakt.
+
+Hetzelfde uploadpaneel en dezelfde bestandskiezer accepteren JPG/JPEG, PNG en
+WebP. Tesseract.js **6.0.1**, Tesseract.js-core **6.0.0** en het Nederlandse
+`nld`-model uit `@tesseract.js-data/nld@1.0.0/4.0.0_best_int` worden pas bij
+foto-import geladen. Herkenning gebeurt lokaal in een browser-worker; foto,
+document en herkende tekst worden niet naar een verwerkingsdienst verstuurd.
+De eerste OCR-start heeft internet nodig voor bibliotheek, WASM en taalmodel.
+Een statische host zoals GitHub Pages volstaat; er is geen backend nodig.
+
+Afbeeldingen mogen maximaal **10 MiB** en **12 megapixels** groot zijn;
+Word/PDF maximaal **20 MiB**. Het paneel toont een lokale preview, voortgang
+en een stopknop. Na herkenning verschijnt het bestaande invoerveld in hetzelfde
+uploadpaneel: tekst kan worden gecorrigeerd voordat de bestaande knop
+**Maak leesvriendelijk** wordt gebruikt. Wisselen van bron behoudt correcties.
+Word en tekst-PDF behouden hun bestaande automatische omzetting.
+Workers, bitmaps en tijdelijke object-URL's worden na gebruik opgeruimd.
+
+OCR is geen garantie op foutloze tekst: onscherpte, slechte belichting, gedraaide
+foto's, handschrift en tabellen kunnen slechte resultaten geven. Gescande PDF's
+worden niet automatisch via OCR verwerkt; exporteer een pagina als afbeelding.
+De pagina bevat uitsluitend de naam LeesBlokjes, zonder handelsmerkteken.
 
 ## Leesprofiel
 
@@ -23,7 +44,7 @@ Een blauwe rand en een vinkje markeren het actieve profiel. Pijltjestoetsen,
 Home en End verplaatsen selectie en focus; Tab verlaat de radiogroep.
 
 - **Klanknavigator** (standaard): kleuren helpen klanken herkennen. Gebruikt
-  exact de bestaande klankgroepen, kleuren en markeringen van LeesBlokjes™.
+  exact de bestaande klankgroepen, kleuren en markeringen van LeesBlokjes.
 - **Lettergrepen**: verdeelt woorden in geschreven Nederlandse lettergrepen,
   bijvoorbeeld `[Ne] [der] [land]`. Ook eenlettergrepige woorden krijgen een leesblok.
 
@@ -65,6 +86,10 @@ kopieren van doorlopende tekst voegt geen bloknummers toe. Terugwisselen herstel
 de oorspronkelijke blokken met hun voorleesknoppen en leeslampje.
 
 De achtergronden zijn **Crème**, **Warmblauw**, **Warmgroen** en **Donker**.
+Zonder opgeslagen achtergrondvoorkeur start de pagina **Donker**. De voorkeur
+wordt al voor het laden van de stylesheets gelezen om een lichte flits te vermijden.
+Bestaande achtergronden en andere leesinstellingen blijven bewaard. Er zijn geen
+nieuwe localStorage-sleutels; thema blijft `theme` in `leesblokjes_leesprofiel`.
 Warmblauw en Warmgroen gebruiken gedempte, warme tinten; de klankkleuren blijven
 in alle thema's gelijk.
 

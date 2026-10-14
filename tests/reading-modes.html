@@ -161,6 +161,23 @@
         pdf += `trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`;
         return new app.File([pdf], 'regressie.pdf', { type: 'application/pdf' });
       }
+      async function createImage(app, type, blank = false) {
+        const canvas = app.document.createElement('canvas');
+        canvas.width = 1400;
+        canvas.height = 300;
+        const context = canvas.getContext('2d');
+        context.fillStyle = 'white';
+        context.fillRect(0, 0, canvas.width, canvas.height);
+        if (!blank) {
+          context.fillStyle = 'black';
+          context.font = '48px Arial';
+          context.fillText('Nederland leest een boek.', 60, 90);
+          context.fillText('De school is dichtbij.', 60, 190);
+        }
+        const blob = await new Promise(resolve => canvas.toBlob(resolve, type, 0.95));
+        if (!blob || blob.type !== type) throw new Error(`Afbeeldingsencoder ontbreekt: ${type}`);
+        return new app.File([blob], `regressie.${type === 'image/jpeg' ? 'jpg' : type.split('/')[1]}`, { type });
+      }
       try {
         keys.forEach(key => localStorage.removeItem(key));
         let app = await loadApp();
@@ -173,6 +190,8 @@
         const isNavigator = document =>
           document.querySelector('[data-reading-profile="navigator"]').getAttribute('aria-checked') === 'true';
         const content = () => doc.querySelector('.blokje-content');
+        assert(doc.body.dataset.theme === 'donker' && doc.getElementById('theme-donker').checked &&
+          doc.documentElement.dataset.theme === 'donker', 'Eerste bezoek start donker, ook op het root-element');
         assert(doc.querySelector('[data-reading-profile="navigator"]').getAttribute('aria-checked') === 'true',
           'Klanknavigator is het standaardprofiel');
         assert(doc.querySelectorAll('[data-reading-profile]').length === 2 &&
@@ -188,9 +207,10 @@
           .every(key => !Object.hasOwn(api, key)) &&
           !doc.querySelector('[id*="bookmarklet"], [id^="web-"], #import-panel-web, #source-banner'),
           'Websitepanelen, bronvermelding en externe import-API zijn volledig verwijderd');
-        assert(doc.querySelector('.app-title').textContent === 'LeesBlokjes™' &&
+        assert(doc.querySelector('.app-title').textContent === 'LeesBlokjes' &&
+          !doc.documentElement.outerHTML.includes(String.fromCharCode(8482)) &&
           !/F&L|Taal in Blokjes|Leeskaart en klankkleuren/.test(doc.body.textContent),
-          'Interface gebruikt uitsluitend de eigen naam LeesBlokjes™ zonder methodenverwijzingen');
+          'Interface en toegankelijke attributen bevatten nergens een handelsmerkteken');
         choose('syllables');
         doc.getElementById('text-input').value = 'Nederland robotje.\n\nEuropa vulkanen!';
         doc.getElementById('btn-convert').click();
@@ -417,7 +437,7 @@
         const inputBeforeRejectedUpload = doc.getElementById('text-input').value;
         await api.handleFileUpload(new app.File(['test'], 'niet-ondersteund.txt'));
         assert(doc.getElementById('upload-alert').style.display === 'flex' &&
-          doc.getElementById('upload-alert-text').textContent.includes('Alleen Word-') &&
+          doc.getElementById('upload-alert-text').textContent.includes('Dit bestandstype wordt niet ondersteund.') &&
           content().textContent === beforeRejectedUpload && doc.getElementById('text-input').value === inputBeforeRejectedUpload,
           'Ongeldig bestandstype geeft een melding en behoudt de huidige tekst');
         doc.getElementById('btn-close-alert').click();
@@ -434,6 +454,120 @@
         assert(doc.getElementById('upload-alert').style.display === 'none' &&
           doc.getElementById('upload-success').style.display === 'flex',
           'Een geldige documentupload werkt opnieuw na een afgewezen of leeg bestand');
+        assert(doc.getElementById('file-input').accept === '.docx,.pdf,.jpg,.jpeg,.png,.webp' &&
+          doc.querySelectorAll('.import-navigation button').length === 2,
+          'Een bestandskiezer en twee bronknoppen voor documenten en afbeeldingen');
+        const imageFiles = [];
+        for (const type of ['image/jpeg', 'image/png', 'image/webp']) {
+          const file = await createImage(app, type);
+          imageFiles.push(file);
+          const previousOutput = doc.getElementById('output-area').innerHTML;
+          if (type === 'image/png') {
+            const transfer = new app.DataTransfer();
+            transfer.items.add(file);
+            doc.getElementById('file-input').files = transfer.files;
+            doc.getElementById('file-input').dispatchEvent(new app.Event('change', { bubbles: true }));
+          } else if (type === 'image/webp') {
+            const transfer = new app.DataTransfer();
+            transfer.items.add(file);
+            doc.getElementById('upload-dropzone').dispatchEvent(new app.DragEvent('drop', { dataTransfer: transfer, bubbles: true }));
+          } else {
+            await api.handleFileUpload(file);
+          }
+          await waitUntil(() => !doc.getElementById('file-input').disabled, `OCR bleef bezig: ${type}`);
+          assert(doc.getElementById('upload-success').style.display === 'flex' &&
+            doc.getElementById('text-input').value.replace(/\s+/g, ' ') === 'Nederland leest een boek. De school is dichtbij.',
+            `Echte Nederlandse OCR en uploadroute: ${type}`);
+          assert(doc.getElementById('output-area').innerHTML === previousOutput &&
+            !doc.getElementById('upload-review').hidden &&
+            doc.getElementById('upload-review').contains(doc.getElementById('text-input')) &&
+            doc.getElementById('upload-preview').naturalWidth > 0 &&
+            api.getActiveImportSection() === 'doc' &&
+            doc.querySelectorAll('.import-panel:not([hidden])').length === 1,
+            `Foto blijft lokaal zichtbaar en bewerkbaar zonder automatische omzetting: ${type}`);
+        }
+        const corrected = 'Nederland leest een ander boek.\n\nDeze tekst is handmatig verbeterd!';
+        doc.getElementById('text-input').value = corrected;
+        doc.getElementById('text-input').dispatchEvent(new app.Event('input'));
+        for (const source of ['text', 'doc']) {
+          doc.getElementById(`tab-btn-${source}`).click();
+          assert(doc.querySelectorAll('#text-input').length === 1 && doc.getElementById('text-input').value === corrected &&
+            doc.getElementById(`import-panel-${source}`).contains(doc.getElementById('text-input')),
+            `Gedeeld invoerveld behoudt de correctie tijdens bronwisselen: ${source}`);
+        }
+        for (const mode of ['navigator', 'syllables']) {
+          doc.querySelector(`[data-reading-profile="${mode}"]`).click();
+          doc.getElementById('btn-convert').click();
+          assert(Array.from(doc.querySelectorAll('.word-group')).map(word => word.textContent).join(' ') === corrected.replace(/\s+/g, ' ') &&
+            doc.querySelector(mode === 'navigator' ? '.sound' : '.syl'),
+            `Handmatig gecorrigeerde OCR-tekst gebruikt centrale verwerking: ${mode}`);
+        }
+        for (const style of ['colored', 'outlined']) {
+          doc.querySelector(`[name="syllable-style"][value="${style}"]`).click();
+          for (const layout of ['blocks', 'continuous']) {
+            doc.querySelector(`[data-reading-layout="${layout}"]`).click();
+            assert(Array.from(doc.querySelectorAll('.reading-unit')).map(unit => unit.dataset.originalText).join('\n\n') === corrected &&
+              doc.querySelectorAll('.reading-unit').length === (layout === 'blocks' ? 2 : 1) &&
+              doc.body.classList.contains('color-syllables') === (style === 'colored'),
+              `Gecorrigeerde OCR-tekst behoudt beide lettergreepweergaven en layouts: ${style}/${layout}`);
+          }
+        }
+        const beforeSpacing = parseFloat(app.getComputedStyle(doc.querySelector('.word-group')).marginInlineEnd);
+        doc.getElementById('profile-word-spacing').value = '2.4';
+        doc.getElementById('profile-word-spacing').dispatchEvent(new app.Event('input'));
+        doc.getElementById('profile-line-height').value = '2.2';
+        doc.getElementById('profile-line-height').dispatchEvent(new app.Event('input'));
+        assert(parseFloat(app.getComputedStyle(doc.querySelector('.word-group')).marginInlineEnd) > beforeSpacing &&
+          doc.documentElement.style.getPropertyValue('--user-line-height') === '2.2',
+          'Woordafstand en regelafstand werken op gecorrigeerde OCR-tekst');
+        const blankImage = await createImage(app, 'image/png', true);
+        await api.handleFileUpload(blankImage);
+        assert(doc.getElementById('upload-alert-text').textContent ===
+          'Geen leesbare tekst gevonden. Probeer een scherpere foto met beter licht.' &&
+          doc.getElementById('text-input').value === corrected,
+          'Afbeelding zonder tekst behoudt de eerdere correctie en toont de juiste melding');
+        await api.handleFileUpload(new app.File([new Uint8Array(10 * 1024 * 1024 + 1)], 'te-groot.png', { type: 'image/png' }));
+        assert(doc.getElementById('upload-alert-text').textContent.startsWith('Deze afbeelding is te groot.'),
+          'Afbeeldingen boven 10 MiB worden voor OCR afgewezen');
+        await api.handleFileUpload(new app.File(['gif'], 'test.gif', { type: 'image/gif' }));
+        assert(doc.getElementById('upload-alert-text').textContent.endsWith('Gebruik JPG, PNG of WebP.'),
+          'Niet-ondersteunde afbeelding krijgt een gerichte melding');
+        assert(api.DocumentProcessor.getFileType(new app.File([], 'test.jpeg', { type: 'image/jpeg' })) === 'jpg' &&
+          api.DocumentProcessor.getFileType(new app.File([], 'test.png')) === 'png' &&
+          api.DocumentProcessor.getFileType(new app.File([], 'test.dat', { type: 'image/webp' })) === 'webp' &&
+          api.DocumentProcessor.getFileType(new app.File([], 'test.pdf', { type: 'image/png' })) === null,
+          'Router gebruikt MIME en extensie en weigert tegenstrijdige ondersteunde typen');
+        const NativeWorker = app.Worker;
+        let terminatedWorkers = 0;
+        let createdWorkers = 0;
+        try {
+          app.Worker = class {
+            constructor() { createdWorkers++; }
+            postMessage() { app.setTimeout(() => this.onmessage({ data: { type: 'error' } }), 0); }
+            terminate() { terminatedWorkers++; }
+          };
+          await api.handleFileUpload(imageFiles[1]);
+          assert(doc.getElementById('upload-alert-text').textContent ===
+            'De tekstherkenning kon niet worden gestart. Controleer de internetverbinding en probeer opnieuw.' &&
+            terminatedWorkers === 1 && doc.getElementById('text-input').value === corrected,
+            'OCR-/taalmodelfout geeft een melding, ruimt de worker op en behoudt correcties');
+          app.Worker = class {
+            constructor() { createdWorkers++; }
+            postMessage() {}
+            terminate() { terminatedWorkers++; }
+          };
+          const pending = api.handleFileUpload(imageFiles[1]);
+          await waitUntil(() => createdWorkers === 2, 'OCR-worker startte niet');
+          await api.handleFileUpload(imageFiles[1]);
+          doc.getElementById('btn-cancel-upload').click();
+          await pending;
+          assert(createdWorkers === 2 && terminatedWorkers === 2 &&
+            !api.DocumentProcessor.ocrActive && !doc.getElementById('file-input').disabled &&
+            doc.getElementById('upload-alert-text').textContent === 'De tekstherkenning is gestopt. Probeer de afbeelding opnieuw.',
+            'Stoppen ruimt op en gelijktijdige upload initialiseert geen dubbele worker');
+        } finally {
+          app.Worker = NativeWorker;
+        }
         doc.getElementById('btn-clear').click();
         choose('syllables');
         doc.getElementById('btn-reset-profile').click();
@@ -1017,7 +1151,7 @@
           app = await loadApp();
           doc = app.document;
           const state = JSON.parse(localStorage.getItem(keys[0]));
-          assert(state.readingProfile === 'navigator' && state.theme === 'creme' &&
+          assert(state.readingProfile === 'navigator' && state.theme === 'donker' &&
             state.readingLayout === 'blocks' && state.font === 'Lexend' && state.fontSize === 20 &&
             state.lineHeight === 1.8 && state.wordSpacing === 1 && state.syllableStyle === 'colored' &&
             !Object.hasOwn(state, 'help') && doc.getElementById('profile-font').value === 'Lexend',
@@ -1035,7 +1169,7 @@
           localStorage.setItem(keys[1], value);
           app = await loadApp();
           doc = app.document;
-          assert(doc.body.dataset.activeProfile === 'navigator' && doc.body.dataset.theme === 'creme' &&
+          assert(doc.body.dataset.activeProfile === 'navigator' && doc.body.dataset.theme === 'donker' &&
             JSON.parse(localStorage.getItem(keys[0])).readingLayout === 'blocks',
             `Ongeldige oude instellingen herstellen het standaardprofiel: ${value}`);
         }
@@ -1154,10 +1288,22 @@
           text: 'Niet importeren' } }));
         assert(doc.getElementById('text-input').value === '' && !doc.querySelector('.reading-unit'),
           'Externe berichten activeren geen import of overlay meer');
+        for (const theme of ['creme', 'blauw', 'groen', 'donker']) {
+          localStorage.setItem(keys[0], JSON.stringify({ readingProfile: 'syllables', syllableStyle: 'outlined',
+            theme, font: 'Verdana', fontSize: 24, wordSpacing: 1.8, readingLayout: 'continuous' }));
+          app = await loadApp();
+          doc = app.document;
+          assert(doc.body.dataset.theme === theme && doc.documentElement.dataset.theme === theme &&
+            doc.getElementById(`theme-${theme}`).checked &&
+            doc.getElementById('profile-font').value === 'Verdana' && doc.getElementById('profile-font-size').value === '24' &&
+            doc.body.dataset.activeProfile === 'syllables' &&
+            JSON.parse(localStorage.getItem(keys[0])).wordSpacing === 1.8,
+            `Bestaande achtergrond en andere leesinstellingen blijven behouden na herladen: ${theme}`);
+        }
         const scriptResponse = await fetch('../script.js');
         assert(scriptResponse.ok, 'Applicatiescript is beschikbaar voor de structurele regressiecontrole');
         const appScript = await scriptResponse.text();
-        assert(!/WebpageProcessor|URLSearchParams|postMessage|window\.location|fetch\(|importText|Bookmarklet|handleWebImport|helpControls/.test(appScript),
+        assert(!/WebpageProcessor|URLSearchParams|window\.location|fetch\(|importText|Bookmarklet|handleWebImport|helpControls/.test(appScript),
           'Applicatiescript bevat geen scraping, URL-verwerking, externe import of verwijderde profielservices');
         frame.style.width = '280px';
         await new Promise(resolve => app.requestAnimationFrame(resolve));
