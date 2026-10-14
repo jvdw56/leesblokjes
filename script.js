@@ -944,16 +944,19 @@ Op een dag vond Pip een geheimzinnig kaartje op de grond. Er stond op: 'De schat
           : 'Dit document is te groot. Kies een bestand van maximaal 20 MiB.');
       }
       let rawText = '';
+      let ocrConfidence = null;
 
       if (ext === 'docx') {
         rawText = await this.extractFromDocx(file);
       } else if (ext === 'pdf') {
         rawText = await this.extractFromPdf(file);
       } else {
-        rawText = await this.extractWithOcr(file, onProgress, signal);
+        const result = await this.extractWithOcr(file, onProgress, signal);
+        rawText = result.text;
+        ocrConfidence = this.normalizeOcrConfidence(result.confidence);
       }
 
-      const cleanText = this.cleanExtractedText(rawText);
+      const cleanText = this.isImage(ext) ? this.cleanOcrText(rawText) : this.cleanExtractedText(rawText);
       const wordCount = this.countWords(cleanText);
       const isScannedOrEmpty = wordCount === 0;
 
@@ -962,6 +965,7 @@ Op een dag vond Pip een geheimzinnig kaartje op de grond. Er stond op: 'De schat
         wordCount,
         fileName: file.name,
         fileType: ext,
+        ocrConfidence,
         isScannedOrEmpty
       };
     },
@@ -1113,6 +1117,30 @@ Op een dag vond Pip een geheimzinnig kaartje op de grond. Er stond op: 'De schat
         .trim();
     },
 
+    cleanOcrText(raw) {
+      const normalized = this.cleanExtractedText(raw)
+        .replace(/[“”«»]/g, '"');
+      const lines = normalized.split('\n').map(line => {
+        if (/^[\s|\\{}#%<>°"]+$/.test(line)) return '';
+        return line.replace(/\S+/g, (token, offset) => {
+          if (!/^[|\\{}#%<>°]+$/.test(token)) return token;
+          if (token === '%' && /\d\s*$/.test(line.slice(0, offset))) return token;
+          return '';
+        }).replace(/[^\S\n]+/g, ' ').trim();
+      });
+      return this.cleanExtractedText(lines.join('\n'));
+    },
+
+    normalizeOcrConfidence(value) {
+      return typeof value === 'number' && Number.isFinite(value)
+        ? Math.min(100, Math.max(0, value)) : null;
+    },
+
+    getOcrReliability(value) {
+      const confidence = this.normalizeOcrConfidence(value);
+      return confidence === null ? 'Onbekend' : confidence >= 90 ? 'Hoog' : confidence >= 70 ? 'Gemiddeld' : 'Laag';
+    },
+
     /**
      * Telt betrouwbaar het aantal woorden in een tekst.
      */
@@ -1156,7 +1184,7 @@ Op een dag vond Pip een geheimzinnig kaartje op de grond. Er stond op: 'De schat
           worker.onmessage = event => {
             const message = event.data;
             if (message.type === 'progress') onProgress(message.progress);
-            else if (message.type === 'result') resolve(message.text);
+            else if (message.type === 'result') resolve({ text: message.text, confidence: message.confidence });
             else if (message.type === 'error') reject(new Error(startupError));
           };
           worker.onerror = event => {
@@ -1198,6 +1226,8 @@ Op een dag vond Pip een geheimzinnig kaartje op de grond. Er stond op: 'De schat
   // Upload UI State Management
   function setUploadState(state, data = {}) {
     if (!uploadIdle || !uploadProcessing || !uploadSuccess) return;
+    document.getElementById('ocr-reliability').hidden = true;
+    document.getElementById('ocr-review-warning').hidden = true;
 
     if (state === 'idle') {
       clearUploadPreview();
@@ -1220,6 +1250,12 @@ Op een dag vond Pip een geheimzinnig kaartje op de grond. Er stond op: 'De schat
       hideUploadAlert();
       if (uploadFileName) uploadFileName.textContent = data.fileName || 'Document';
       uploadSuccessHeadline.textContent = data.isImage ? 'Afbeelding succesvol verwerkt.' : 'Document succesvol geladen';
+      if (data.isImage) {
+        const confidence = DocumentProcessor.normalizeOcrConfidence(data.ocrConfidence);
+        document.getElementById('ocr-reliability').hidden = false;
+        document.getElementById('ocr-reliability-value').textContent = DocumentProcessor.getOcrReliability(confidence);
+        document.getElementById('ocr-review-warning').hidden = confidence !== null && confidence >= 70;
+      }
       if (uploadWordCount) {
         const count = data.wordCount || 0;
         uploadWordCount.textContent = `${count} ${count === 1 ? 'woord' : 'woorden'} gevonden`;
@@ -1308,6 +1344,7 @@ Op een dag vond Pip een geheimzinnig kaartje op de grond. Er stond op: 'De schat
       setUploadState('success', {
         fileName: result.fileName,
         wordCount: result.wordCount,
+        ocrConfidence: result.ocrConfidence,
         isImage
       });
 

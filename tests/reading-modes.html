@@ -161,7 +161,7 @@
         pdf += `trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`;
         return new app.File([pdf], 'regressie.pdf', { type: 'application/pdf' });
       }
-      async function createImage(app, type, blank = false) {
+      async function createImage(app, type, blank = false, rotation = 0) {
         const canvas = app.document.createElement('canvas');
         canvas.width = 1400;
         canvas.height = 300;
@@ -174,7 +174,17 @@
           context.fillText('Nederland leest een boek.', 60, 90);
           context.fillText('De school is dichtbij.', 60, 190);
         }
-        const blob = await new Promise(resolve => canvas.toBlob(resolve, type, 0.95));
+        let source = canvas;
+        if (rotation) {
+          source = app.document.createElement('canvas');
+          source.width = canvas.height;
+          source.height = canvas.width;
+          const rotated = source.getContext('2d');
+          rotated.translate(source.width / 2, source.height / 2);
+          rotated.rotate(rotation * Math.PI / 180);
+          rotated.drawImage(canvas, -canvas.width / 2, -canvas.height / 2);
+        }
+        const blob = await new Promise(resolve => source.toBlob(resolve, type, 0.95));
         if (!blob || blob.type !== type) throw new Error(`Afbeeldingsencoder ontbreekt: ${type}`);
         return new app.File([blob], `regressie.${type === 'image/jpeg' ? 'jpg' : type.split('/')[1]}`, { type });
       }
@@ -183,6 +193,31 @@
         let app = await loadApp();
         let doc = app.document;
         const api = app.LeesBlokjes;
+        const cleanupCases = [
+          ['|\n\\\n{} # % < >\nNederland leest.', 'Nederland leest.'],
+          ['Voor | \\ {} # % < > na.', 'Voor na.'],
+          ['Voor ||| \\{{###<>}} na.', 'Voor na.'],
+          ['“Hallo,” zei zij. «Welkom!»', '"Hallo," zei zij. "Welkom!"'],
+          ['Á À Â café één naïef reëel coöperatie IJssel.', 'Á À Â café één naïef reëel coöperatie IJssel.'],
+          ['Prijs: 12,50 (incl. 21%). 50 % korting; 20°C.', 'Prijs: 12,50 (incl. 21%). 50 % korting; 20°C.'],
+          ['10%\n123\n(45)\n.\n,\n:', '10%\n123\n(45)\n.\n,\n:'],
+          ['C# A|B 5<10 pad\\bestand #school', 'C# A|B 5<10 pad\\bestand #school'],
+          ['Eerste alinea.\n\nTweede alinea!', 'Eerste alinea.\n\nTweede alinea!'],
+          ['{}\n“”\n°\n##%', ''],
+          ['e\u0301n 3,5% goed.', 'e\u0301n 3,5% goed.']
+        ];
+        for (const [raw, expected] of cleanupCases) {
+          assert(api.DocumentProcessor.cleanOcrText(raw) === expected,
+            `Voorzichtige OCR-opschoning behoudt letters, cijfers en betekenisvolle tekens: ${JSON.stringify(raw)}`);
+          assert(api.DocumentProcessor.cleanOcrText(expected) === expected, 'OCR-opschoning is idempotent');
+        }
+        assert(api.DocumentProcessor.cleanExtractedText('Tekst | # 50 % “café”') === 'Tekst | # 50 % “café”',
+          'Word/PDF-opschoning wordt niet door OCR-filtering veranderd');
+        for (const [confidence, level] of [[0, 'Laag'], [69.99, 'Laag'], [70, 'Gemiddeld'],
+          [89.99, 'Gemiddeld'], [90, 'Hoog'], [100, 'Hoog'], [null, 'Onbekend'], [NaN, 'Onbekend']]) {
+          assert(api.DocumentProcessor.getOcrReliability(confidence) === level,
+            `Betrouwbaarheidsgrens: ${confidence} is ${level}`);
+        }
         const choose = mode => {
           doc.querySelector(`[data-reading-profile="${mode === 'syllables' ? 'syllables' : 'navigator'}"]`).click();
           if (doc.getElementById('text-input').value.trim()) doc.getElementById('btn-convert').click();
@@ -485,6 +520,16 @@
             api.getActiveImportSection() === 'doc' &&
             doc.querySelectorAll('.import-panel:not([hidden])').length === 1,
             `Foto blijft lokaal zichtbaar en bewerkbaar zonder automatische omzetting: ${type}`);
+          assert(!doc.getElementById('ocr-reliability').hidden &&
+            ['Hoog', 'Gemiddeld', 'Laag'].includes(doc.getElementById('ocr-reliability-value').textContent),
+            `Echte OCR-confidence is doorgegeven aan de interface: ${type}`);
+        }
+        for (const angle of [90, -90]) {
+          const file = await createImage(app, 'image/png', false, angle);
+          await api.handleFileUpload(file);
+          assert(doc.getElementById('text-input').value.replace(/\s+/g, ' ') === 'Nederland leest een boek. De school is dichtbij.' &&
+            doc.getElementById('upload-success').style.display === 'flex',
+            `Echte OCR corrigeert een duidelijk gedraaide afbeelding: ${angle} graden`);
         }
         const corrected = 'Nederland leest een ander boek.\n\nDeze tekst is handmatig verbeterd!';
         doc.getElementById('text-input').value = corrected;
@@ -541,6 +586,23 @@
         let terminatedWorkers = 0;
         let createdWorkers = 0;
         try {
+          for (const [confidence, expected] of [[95, 'Hoog'], [70, 'Gemiddeld'], [69, 'Laag'], [0, 'Laag'], [undefined, 'Onbekend']]) {
+            app.Worker = class {
+              postMessage() {
+                app.setTimeout(() => this.onmessage({ data: {
+                  type: 'result', text: '|\n“Goede tekst,” 10% (café): Á.\n###', confidence
+                } }), 0);
+              }
+              terminate() {}
+            };
+            await api.handleFileUpload(imageFiles[1]);
+            assert(doc.getElementById('text-input').value === '"Goede tekst," 10% (café): Á.' &&
+              doc.getElementById('ocr-reliability-value').textContent === expected &&
+              !doc.getElementById('ocr-reliability').hidden &&
+              doc.getElementById('ocr-review-warning').hidden === (confidence >= 70),
+              `Opschoning en confidencewaarschuwing worden vóór handmatige verwerking toegepast: ${confidence}`);
+          }
+          doc.getElementById('text-input').value = corrected;
           app.Worker = class {
             constructor() { createdWorkers++; }
             postMessage() { app.setTimeout(() => this.onmessage({ data: { type: 'error' } }), 0); }
@@ -551,6 +613,8 @@
             'De tekstherkenning kon niet worden gestart. Controleer de internetverbinding en probeer opnieuw.' &&
             terminatedWorkers === 1 && doc.getElementById('text-input').value === corrected,
             'OCR-/taalmodelfout geeft een melding, ruimt de worker op en behoudt correcties');
+          assert(doc.getElementById('ocr-reliability').hidden && doc.getElementById('ocr-review-warning').hidden,
+            'Mislukte of nieuwe import laat geen verouderde betrouwbaarheid staan');
           app.Worker = class {
             constructor() { createdWorkers++; }
             postMessage() {}

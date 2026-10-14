@@ -32,6 +32,22 @@ foto's, handschrift en tabellen kunnen slechte resultaten geven. Gescande PDF's
 worden niet automatisch via OCR verwerkt; exporteer een pagina als afbeelding.
 De pagina bevat uitsluitend de naam LeesBlokjes, zonder handelsmerkteken.
 
+OCR-resultaten krijgen een aparte voorzichtige opschoning, voordat ze in het
+tekstvak komen. Losstaande ruis zoals verticale strepen, backslashes, accolades
+en symbolenreeksen wordt verwijderd; aanhalingstekens worden genormaliseerd.
+Letters (inclusief accenten), cijfers, leestekens, percentages en alinea's blijven
+behouden. Bij twijfel blijven tekens die aan woorden of getallen vastzitten staan,
+bijvoorbeeld `C#`, `A|B`, `5<10`, `10%` en `20°C`. Word/PDF verandert niet.
+
+De Tesseract-confidence verschijnt als **OCR betrouwbaarheid**: **Hoog** vanaf
+90, **Gemiddeld** vanaf 70, **Laag** onder 70. Een ontbrekende score is **Onbekend**.
+Onder 70 (of zonder score) verschijnt een waarschuwing om de tekst te controleren.
+Dit is een schatting van de OCR-engine, geen garantie op inhoudelijke juistheid.
+De bestaande worker corrigeert lichte scheefstand automatisch en probeert bij
+een score onder 70 ook 90, 270 en 180 graden. Een kwartslag wordt alleen gekozen
+bij minstens 70 confidence en een verbetering van minstens 15 punten. Dit kan
+bij lastige of lege afbeeldingen extra verwerkingstijd kosten.
+
 ## Leesprofiel
 
 Het instellingenpaneel blijft beschikbaar en is niet inklapbaar. De volgorde is
